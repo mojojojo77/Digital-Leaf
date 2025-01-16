@@ -205,7 +205,15 @@ int main(int argc, char* argv[]) {
 					fclose(file);
 				}
                 quit = 1;
-            } else if (e.type == SDL_KEYDOWN) {
+            } else if (e.type == SDL_WINDOWEVENT) {
+					// Handle window resize event
+					if (e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
+						// Get the new window dimensions						
+						SDL_GetWindowSize(window, &netWidth, &netHeight);
+						// You can now use the new width and height for rendering or layout adjustments
+						SDL_Log("Window resized to %d x %d", netWidth, netHeight);
+					}
+			}else if (e.type == SDL_KEYDOWN) {
                 if (e.key.keysym.sym == SDLK_BACKSPACE && cursor > 0) {
 					textBuffer[cursor-1] = textBuffer[cursor];
 					cursor--;
@@ -214,15 +222,7 @@ int main(int argc, char* argv[]) {
                     }					
 					textBuffer[bufferIndex] = '\0';
                     bufferIndex--;
-                } else if (e.type == SDL_WINDOWEVENT) {
-					// Handle window resize event
-					if (e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
-						// Get the new window dimensions						
-						SDL_GetWindowSize(window, &netWidth, &netHeight);
-						// You can now use the new width and height for rendering or layout adjustments
-						SDL_Log("Window resized to %d x %d", netWidth, netHeight);
-					}
-				} else if (e.key.keysym.sym == SDLK_RETURN) {
+                } else if (e.key.keysym.sym == SDLK_RETURN) {
 					tmpBufferIndex = bufferIndex; // Remember to reuse this code 
 					while(cursor < tmpBufferIndex){
 						swap(&textBuffer[tmpBufferIndex+1], &textBuffer[tmpBufferIndex]);
@@ -278,7 +278,7 @@ int main(int argc, char* argv[]) {
 						i++;
 						swap(&textBuffer[cursor - 1], &textBuffer[cursor]);
 						cursor--;
-
+	
 					}	
 				} else if (e.key.keysym.sym == SDLK_DOWN) {
 					if (cursor < bufferIndex - 1) {  // Ensure we're not at the end
@@ -313,6 +313,49 @@ int main(int argc, char* argv[]) {
 							}
 						}
 					}
+				} else if ((e.key.keysym.mod & KMOD_CTRL) && e.key.keysym.sym == SDLK_v) {
+					char* copied_text = SDL_GetClipboardText();
+					char* cleaned_text = malloc(strlen(copied_text) + 1);
+					size_t clean_index = 0;
+
+		
+					for (size_t i = 0; i < strlen(copied_text); i++) {
+						if (copied_text[i] != '\r') {
+							cleaned_text[clean_index++] = copied_text[i];
+						}
+					}
+					cleaned_text[clean_index] = '\0';  // Null terminate the cleaned string
+
+					if (cleaned_text) {
+//						printf(cleaned_text);
+						size_t paste_len = strlen(cleaned_text);
+						size_t buffer_len = strlen(textBuffer);
+
+						// Create a cleaned version of the text
+						
+						// Clean up the text - remove \r characters
+						
+						
+						// Make sure we have enough space in the buffer
+//						if (buffer_len + paste_len < bufferIndex) {  // Assuming BUFFER_MAX_SIZE is defined
+							// First, make space for the new text by moving existing text
+							for (int i = buffer_len; i >= cursor; i--) {
+								textBuffer[i + paste_len] = textBuffer[i];
+							}
+							
+							// Now insert the copied text at cursor position
+							for (size_t i = 0; i < paste_len; i++) {
+								textBuffer[cursor + i] = cleaned_text[i];
+							}
+							
+							// Update buffer index and cursor position
+							bufferIndex += paste_len;
+							cursor += paste_len;
+//						}
+						
+						// Free the clipboard text
+//						SDL_free(copied_text);
+					}
 				}
             } else if (e.type == SDL_TEXTINPUT) {
                 if (bufferIndex < sizeof(textBuffer) - 1) {
@@ -326,8 +369,6 @@ int main(int argc, char* argv[]) {
                     cursor++;
                 }
             }
-			
-			
         }
 		
         if (SDL_GetTicks() - cursorBlinkTime >= 500) {
@@ -367,7 +408,7 @@ int main(int argc, char* argv[]) {
 				if (textTexture) {
 					SDL_Rect textRect = {0, y_off+25, textSurface->w, textSurface->h};
 					y_off += textSurface->h;
-			printf("%d, %d \n", textSurface->w, textSurface->h);
+//					printf("%d, %d \n", textSurface->w, textSurface->h);
 				
 					SDL_RenderCopy(renderer, textTexture, NULL, &textRect);
 					SDL_DestroyTexture(textTexture);
