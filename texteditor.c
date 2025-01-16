@@ -15,6 +15,83 @@ void swap(char *a, char *b) {
     *b = temp;
 }
 
+// Menu Bar 
+int netWidth;
+int netHeight;
+
+// Menu item dimensions
+const int MENU_HEIGHT = 20;
+const int MENU_ITEM_WIDTH = 40;
+
+enum MenuItem {
+    FILE_QUIT,
+    FILE_COUNT
+};
+
+SDL_Window* window = NULL;
+		
+SDL_Renderer* renderer = NULL;
+
+TTF_Font* font = NULL;
+TTF_Font* font_menu = NULL;
+
+
+void drawMenuBar() {
+	// Set the color for the menu bar (dark gray)
+	SDL_SetRenderDrawColor(renderer, 150, 150, 150, 255);
+	SDL_GetWindowSize(window, &netWidth, &netHeight);
+	SDL_Rect menuBar = {0, 0, netWidth, MENU_HEIGHT};
+	SDL_RenderFillRect(renderer, &menuBar);
+
+	// Draw the "File" menu item
+	SDL_SetRenderDrawColor(renderer, 200, 200, 200, 255);  // White color
+	SDL_Rect fileItem = {0, 0, MENU_ITEM_WIDTH, MENU_HEIGHT};
+	SDL_RenderFillRect(renderer, &fileItem);
+	
+	// Draw a border around the "File" menu item (black border)
+//	SDL_SetRenderDrawColor(renderer, 100, 100, 100, 255);  // Black color for the border
+//	SDL_RenderDrawRect(renderer, &menuBar);  // Draw the border around the menu item
+	
+//	SDL_RenderDrawLine(renderer, menuBar.x, menuBar.y, menuBar.x, menuBar.y + menuBar.h);          // Left side
+//	SDL_RenderDrawLine(renderer, menuBar.x + menuBar.w, menuBar.y, menuBar.x + menuBar.w, menuBar.y + menuBar.h);  // Right side
+//	SDL_RenderDrawLine(renderer, menuBar.x, menuBar.y + menuBar.h, menuBar.x + menuBar.w, menuBar.y + menuBar.h);  // Bottom side
+
+
+	// Set text color (black)
+	SDL_Color textColor = {0, 0, 0, 255};
+
+	font_menu = TTF_OpenFont("fonts/OpenSans-Regular.ttf", 13);
+	
+	// Render the text for "File"
+	SDL_Surface* textSurface = TTF_RenderText_Blended(font_menu, "File", textColor);
+	if (!textSurface) {
+		SDL_Log("Unable to render text surface! TTF_Error: %s\n", TTF_GetError());
+	}
+
+	// Create a texture from the surface
+	SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
+	SDL_FreeSurface(textSurface);  // Free the surface as it's no longer needed
+
+	// Get the dimensions of the text texture
+	int textWidth = 0, textHeight = 0;
+	SDL_QueryTexture(textTexture, NULL, NULL, &textWidth, &textHeight);
+
+	// Calculate the position to center the text inside the menu item
+	SDL_Rect textRect = {
+		fileItem.x + (fileItem.w - textWidth) / 2,  // Center horizontally
+		fileItem.y + (fileItem.h - textHeight) / 2, // Center vertically
+		textWidth,
+		textHeight
+	};
+
+	// Render the text on the screen
+	SDL_RenderCopy(renderer, textTexture, NULL, &textRect);
+
+	// Destroy the text texture after rendering
+	SDL_DestroyTexture(textTexture);
+}
+
+
 int main(int argc, char* argv[]) {
     char textBuffer[256] = ""; // Buffer to store user input
     char tempBuffer[256]; // Temporary buffer for strtok operations
@@ -55,9 +132,8 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    SDL_Window* window = SDL_CreateWindow("SDL2 Text Input",
-        SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-        800, 600, SDL_WINDOW_SHOWN);
+    window = SDL_CreateWindow("Text Editor",
+        SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 800, 600, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
     if (!window) {
         printf("Window could not be created! SDL_Error: %s\n", SDL_GetError());
         TTF_Quit();
@@ -65,7 +141,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+	renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
     if (!renderer) {
         printf("Renderer could not be created! SDL_Error: %s\n", SDL_GetError());
         SDL_DestroyWindow(window);
@@ -74,7 +150,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    TTF_Font* font = TTF_OpenFont("fonts/OpenSans-Regular.ttf", 24);
+    font = TTF_OpenFont("fonts/OpenSans-Regular.ttf", 16);
     if (!font) {
         printf("Failed to load font! TTF_Error: %s\n", TTF_GetError());
         SDL_DestroyRenderer(renderer);
@@ -87,7 +163,9 @@ int main(int argc, char* argv[]) {
     SDL_Color textColor = {0, 0, 0, 255}; // Black color
     SDL_StartTextInput();
 
+
     while (!quit) {
+
         SDL_Event e;
         
         // Handle events
@@ -114,7 +192,15 @@ int main(int argc, char* argv[]) {
                     }					
 					textBuffer[bufferIndex] = '\0';
                     bufferIndex--;
-                } else if (e.key.keysym.sym == SDLK_RETURN) {
+                } else if (e.type == SDL_WINDOWEVENT) {
+					// Handle window resize event
+					if (e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
+						// Get the new window dimensions						
+						SDL_GetWindowSize(window, &netWidth, &netHeight);
+						// You can now use the new width and height for rendering or layout adjustments
+						SDL_Log("Window resized to %d x %d", netWidth, netHeight);
+					}
+				} else if (e.key.keysym.sym == SDLK_RETURN) {
 					tmpBufferIndex = bufferIndex; // Remember to reuse this code 
 					while(cursor < tmpBufferIndex){
 						swap(&textBuffer[tmpBufferIndex+1], &textBuffer[tmpBufferIndex]);
@@ -241,7 +327,7 @@ int main(int argc, char* argv[]) {
 			if (textSurface) {
 				SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
 				if (textTexture) {
-					SDL_Rect textRect = {0, y_off, textSurface->w, textSurface->h};
+					SDL_Rect textRect = {0, y_off+20, textSurface->w, textSurface->h};
 					y_off += textSurface->h;
 					
 					SDL_RenderCopy(renderer, textTexture, NULL, &textRect);
@@ -257,6 +343,8 @@ int main(int argc, char* argv[]) {
 			textBufferToken = strtok(NULL, "\n");
 		}
 		printf("%d",tokenCnt);
+		        
+		drawMenuBar();
         SDL_RenderPresent(renderer);
     }
 
