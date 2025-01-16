@@ -35,6 +35,11 @@ char *strsep(char **stringp, const char *delim) {
 }
 
 
+// Highlight flag
+bool highlight_flag = 0;
+int highlight_start;
+int highlight_end;
+
 // Menu Bar 
 int netWidth;
 int netHeight;
@@ -42,6 +47,9 @@ int netHeight;
 // Menu item dimensions
 const int MENU_HEIGHT = 20;
 const int MENU_ITEM_WIDTH = 40;
+
+// Colour of the highlight when text is selected
+SDL_Color highlightColor = {173, 200, 255, 255};
 
 enum MenuItem {
     FILE_QUIT,
@@ -214,6 +222,12 @@ int main(int argc, char* argv[]) {
 						SDL_Log("Window resized to %d x %d", netWidth, netHeight);
 					}
 			}else if (e.type == SDL_KEYDOWN) {
+				highlight_flag = 0;
+//				if(e.key.keysym.mod){
+//					highlight_flag = 0; 
+//					printf("%d",highlight_flag);
+//				}
+				
                 if (e.key.keysym.sym == SDLK_BACKSPACE && cursor > 0) {
 					textBuffer[cursor-1] = textBuffer[cursor];
 					cursor--;
@@ -356,6 +370,14 @@ int main(int argc, char* argv[]) {
 						// Free the clipboard text
 //						SDL_free(copied_text);
 					}
+				}else if ((e.key.keysym.mod & KMOD_CTRL) && e.key.keysym.sym == SDLK_a){
+					highlight_flag = 1;
+					highlight_start = 0;
+					highlight_end = bufferIndex;
+				}else if ((e.key.keysym.mod & KMOD_SHIFT) && (e.key.keysym.sym == SDLK_LEFT)){
+					highlight_flag = 1;
+				}else if ((e.key.keysym.mod & KMOD_SHIFT) && (e.key.keysym.sym == SDLK_RIGHT)){
+					highlight_flag = 1;
 				}
             } else if (e.type == SDL_TEXTINPUT) {
                 if (bufferIndex < sizeof(textBuffer) - 1) {
@@ -395,13 +417,16 @@ int main(int argc, char* argv[]) {
 		
 		int y_off = 0;
 		int tokenCnt = 0;
+		int highlight_text_index = 0;
+		int totalCharsProcessed = 0;
 		
 		while ((token = strsep(&str, "\n")) != NULL) {
 			tokenCnt++;
-			
+			int lineLength = strlen(token);
 			// If token is empty, use a space character instead
 			char* textToRender = strlen(token) == 0 ? " " : token;
 			
+
 			SDL_Surface* textSurface = TTF_RenderText_Blended(font, textToRender, textColor);
 			if (textSurface) {
 				SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
@@ -409,12 +434,76 @@ int main(int argc, char* argv[]) {
 					SDL_Rect textRect = {0, y_off+25, textSurface->w, textSurface->h};
 					y_off += textSurface->h;
 //					printf("%d, %d \n", textSurface->w, textSurface->h);
-				
+
+					if (highlight_flag == 1) {
+						// Calculate the actual position in the full text
+						int lineStartIdx = totalCharsProcessed;
+						int lineEndIdx = lineStartIdx + lineLength;
+						
+						// If the line is in the highlighted range
+						if (highlight_start < lineEndIdx && highlight_end > lineStartIdx) {
+							// Calculate highlight positions relative to this line
+							int highlightBegin = (highlight_start > lineStartIdx) ? 
+											   (highlight_start - lineStartIdx) : 0;
+							int highlightEndIdx = (highlight_end < lineEndIdx) ? 
+												(highlight_end - lineStartIdx) : lineLength;
+							
+							// Render the highlight background
+							if (highlightBegin < highlightEndIdx) {
+								// Calculate pixel positions based on character positions
+								int preHighlightWidth;
+								char* preHighlightText = malloc(highlightBegin + 1);
+								strncpy(preHighlightText, textToRender, highlightBegin);
+								preHighlightText[highlightBegin] = '\0';
+								TTF_SizeText(font, preHighlightText, &preHighlightWidth, NULL);
+								free(preHighlightText);
+
+								// Get the width of the highlighted portion
+								int highlightWidth;
+								int highlightLength = highlightEndIdx - highlightBegin;
+								char* highlightText = malloc(highlightLength + 1);
+								strncpy(highlightText, textToRender + highlightBegin, highlightLength);
+								highlightText[highlightLength] = '\0';
+								TTF_SizeText(font, highlightText, &highlightWidth, NULL);
+								free(highlightText);
+
+								SDL_Rect highlightRect = {
+									textRect.x + preHighlightWidth,
+									textRect.y,
+									highlightWidth,
+									textRect.h
+								};
+								
+								SDL_SetRenderDrawColor(renderer, highlightColor.r, 
+													 highlightColor.g, highlightColor.b, 
+													 highlightColor.a);
+								SDL_RenderFillRect(renderer, &highlightRect);
+							}
+						}
+						if(cursor + 1 < bufferIndex){
+int maxCharWidth;
+TTF_SizeText(font, "|", &maxCharWidth, NULL);  // 'W' is usually one of the widest chars
+							
+								SDL_Rect highlightRect = {
+									textRect.x,
+									textRect.y,
+									maxCharWidth,
+									textRect.h
+								};
+								
+								SDL_SetRenderDrawColor(renderer, highlightColor.r, 
+													 highlightColor.g, highlightColor.b, 
+													 highlightColor.a);
+								SDL_RenderFillRect(renderer, &highlightRect);
+							
+						}
+					}
 					SDL_RenderCopy(renderer, textTexture, NULL, &textRect);
 					SDL_DestroyTexture(textTexture);
 				}
 				SDL_FreeSurface(textSurface);
 			}
+			totalCharsProcessed += lineLength + 1;
 		}
 //		printf("%d",tokenCnt); DEGUBGIN ATTEMPT TO IMPLEMENT A NEW LINE ON AN EMPTY TOKEN 
 		        
