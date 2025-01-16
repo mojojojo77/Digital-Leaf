@@ -4,8 +4,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
+#include <unistd.h>
 
-// Test Commit
+
 
 // Helper Functions
 void swap(char *a, char *b) {
@@ -15,6 +16,34 @@ void swap(char *a, char *b) {
 }
 
 int main(int argc, char* argv[]) {
+    char textBuffer[256] = ""; // Buffer to store user input
+    char tempBuffer[256]; // Temporary buffer for strtok operations
+    int quit = 0;
+	int cursor = 0;
+	int bufferIndex = 0;
+	int tmpBufferIndex = 0;
+	FILE *file;
+		
+	if (argc == 2){
+		char *filename = argv[1];  // Get the filename from command-line arguments
+		file = fopen(filename, "r+");  // Open the file in read mode
+
+		if (file == NULL) {
+			perror("Error opening file");
+			return 1;
+		}
+
+		size_t bytesRead;
+
+		while ((bytesRead = fread(textBuffer, 1, 256, file)) > 0) {
+			// Write the buffer content to stdout (or process it as needed)
+			fwrite(textBuffer, 1, bytesRead, stdout);
+		}
+		bufferIndex = strlen(textBuffer);
+		printf("%d",bufferIndex);
+		cursor = bufferIndex;
+	}
+	
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
         printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
         return 1;
@@ -56,12 +85,6 @@ int main(int argc, char* argv[]) {
     }
 
     SDL_Color textColor = {0, 0, 0, 255}; // Black color
-    char textBuffer[256] = ""; // Buffer to store user input
-    char tempBuffer[256]; // Temporary buffer for strtok operations
-    int quit = 0;
-	int cursor = 0;
-	int bufferIndex = 0;
-	int tmpBufferIndex = 0;
     SDL_StartTextInput();
 
     while (!quit) {
@@ -69,7 +92,18 @@ int main(int argc, char* argv[]) {
         
         // Handle events
         while (SDL_PollEvent(&e) != 0) {
-            if (e.type == SDL_QUIT) {
+            if (e.type == SDL_QUIT){
+				if(argc == 2){
+					ftruncate(fileno(file), 0);
+					rewind(file);
+					while(cursor < bufferIndex){
+						swap(&textBuffer[cursor], &textBuffer[cursor+1]);
+						cursor++;
+					}
+					textBuffer[cursor] = '\0';
+					fprintf(file, textBuffer);
+					fclose(file);
+				}
                 quit = 1;
             } else if (e.type == SDL_KEYDOWN) {
                 if (e.key.keysym.sym == SDLK_BACKSPACE && cursor > 0) {
@@ -87,9 +121,20 @@ int main(int argc, char* argv[]) {
 						tmpBufferIndex--;
                     }
                     textBuffer[cursor] = '\n'; // Insert a newline character on Return key
-                    bufferIndex++;
+					bufferIndex++;
                     cursor++;
                 } else if (e.key.keysym.sym == SDLK_ESCAPE) {
+					if(argc == 2){
+						ftruncate(fileno(file), 0);
+						rewind(file);
+						while(cursor < bufferIndex){
+							swap(&textBuffer[cursor], &textBuffer[cursor+1]);
+							cursor++;
+						}
+						textBuffer[cursor] = '\0';
+						fprintf(file, textBuffer);
+						fclose(file);
+					}
                     quit = 1; // Quit on Escape
                 } else if (e.key.keysym.sym == SDLK_LEFT && cursor > 0) {
                     swap(&textBuffer[cursor - 1], &textBuffer[cursor]);
@@ -183,28 +228,35 @@ int main(int argc, char* argv[]) {
         strcpy(tempBuffer, textBuffer);
         
         // Tokenize and render text based on newline characters
-        char* textBufferToken = strtok(tempBuffer, "\n");
-        int y_off = 0;
-        int tokenCnt = 0;
-
-        while (textBufferToken != NULL) {
-            tokenCnt++;
-            SDL_Surface* textSurface = TTF_RenderText_Blended(font, textBufferToken, textColor);
-            if (textSurface) {
-                SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
-                if (textTexture) {
-                    SDL_Rect textRect = {0, y_off, textSurface->w, textSurface->h};
-                    y_off += textSurface->h;
-                    
-                    SDL_RenderCopy(renderer, textTexture, NULL, &textRect);
-                    SDL_DestroyTexture(textTexture);
-                }
-                SDL_FreeSurface(textSurface);
-            }
-            textBufferToken = strtok(NULL, "\n");
-			printf("%d, %d \n",textSurface->w,textSurface->h);
-        }
-
+		char* textBufferToken = strtok(tempBuffer, "\n");
+		int y_off = 0;
+		int tokenCnt = 0;
+		while (textBufferToken != NULL) {
+			tokenCnt++;
+			
+			// If token is empty, use a space character instead
+			char* textToRender = strlen(textBufferToken) == 0 ? " " : textBufferToken;
+			
+			SDL_Surface* textSurface = TTF_RenderText_Blended(font, textToRender, textColor);
+			if (textSurface) {
+				SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
+				if (textTexture) {
+					SDL_Rect textRect = {0, y_off, textSurface->w, textSurface->h};
+					y_off += textSurface->h;
+					
+					SDL_RenderCopy(renderer, textTexture, NULL, &textRect);
+					SDL_DestroyTexture(textTexture);
+				}
+				SDL_FreeSurface(textSurface);
+			}
+			char* temp = textBufferToken + strlen(textBufferToken);
+			while(*temp != '\0' && strchr("\n",*temp)){
+				tokenCnt++;
+				temp++;
+			}
+			textBufferToken = strtok(NULL, "\n");
+		}
+		printf("%d",tokenCnt);
         SDL_RenderPresent(renderer);
     }
 
