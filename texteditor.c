@@ -263,11 +263,11 @@ int main(int argc, char* argv[]) {
 						else if((textBuffer[cursor-1] == '\n' && flag_1 == 1 ) || (cursor == 0 && flag_1 == 1)){
 							i = 0;
 							while (i<j){
+								if(textBuffer[cursor + 1] == '\n')
+									break;
 								i++;
 								swap(&textBuffer[cursor + 1], &textBuffer[cursor]);
 								cursor++;
-								if(textBuffer[cursor + 1] == '\n')
-									break;
 							}
 							flag_1 = 0;
 							break;
