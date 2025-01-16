@@ -199,7 +199,7 @@ int main(int argc, char* argv[]) {
         SDL_Event e;
         
         // Handle events
-        while (SDL_PollEvent(&e) != 0) {
+        while (SDL_PollEvent(&e)) {
             if (e.type == SDL_QUIT){
 				if(argc == 2){
 					ftruncate(fileno(file), 0);
@@ -221,13 +221,66 @@ int main(int argc, char* argv[]) {
 						// You can now use the new width and height for rendering or layout adjustments
 						SDL_Log("Window resized to %d x %d", netWidth, netHeight);
 					}
-			}else if (e.type == SDL_KEYDOWN) {
-				highlight_flag = 0;
-//				if(e.key.keysym.mod){
-//					highlight_flag = 0; 
-//					printf("%d",highlight_flag);
-//				}
-				
+			}else if (e.type == SDL_KEYDOWN) {	
+//				highlight_flag = 0;
+                SDL_Keymod mod = SDL_GetModState();
+
+				if (mod & KMOD_SHIFT) {
+					printf("Shift is pressed.\n");
+					
+					// Store current cursor position before any movement
+					int highlight_anchor;
+					
+					if (!highlight_flag) {
+						// First time initiating highlight
+						highlight_flag = 1;
+						highlight_anchor = cursor; // Store the initial position where highlighting began
+						highlight_start = cursor;
+						highlight_end = cursor;
+					}
+					
+					if (e.key.keysym.sym == SDLK_LEFT) {
+						if (cursor > 0) {
+							// Determine highlight boundaries based on anchor point
+							if (cursor <= highlight_anchor) {
+								highlight_start = cursor-1;
+								highlight_end = highlight_anchor+1;
+							} else {
+								highlight_start = highlight_anchor;
+								highlight_end = cursor;
+							}
+						}
+					}
+					
+					if (e.key.keysym.sym == SDLK_RIGHT) {
+						if (cursor < bufferIndex) {
+								// Determine highlight boundaries based on anchor point
+							if (cursor >= highlight_anchor) {
+								highlight_start = highlight_anchor;
+								highlight_end = cursor+1;
+							} else {
+								highlight_start = cursor+1;
+								highlight_end = highlight_anchor+1;
+							}
+						}
+					}
+				}                
+				else if (mod & KMOD_CTRL){
+					printf("Control is pressed.\n");
+					if(e.key.keysym.sym == SDLK_a){
+						highlight_flag = 1;
+						highlight_start = 0;
+						highlight_end = bufferIndex;
+					}
+				}
+                else if (mod & KMOD_ALT)   printf("Alt is pressed.\n");
+                else if (mod & KMOD_GUI)   printf("GUI (Windows/Command) is pressed.\n");
+				else highlight_flag = 0;
+					
+
+
+
+
                 if (e.key.keysym.sym == SDLK_BACKSPACE && cursor > 0) {
 					textBuffer[cursor-1] = textBuffer[cursor];
 					cursor--;
@@ -370,12 +423,6 @@ int main(int argc, char* argv[]) {
 						// Free the clipboard text
 //						SDL_free(copied_text);
 					}
-				}else if ((e.key.keysym.mod & KMOD_CTRL) && e.key.keysym.sym == SDLK_a){
-					highlight_flag = 1;
-					highlight_start = 0;
-					highlight_end = bufferIndex;
-				}else if ((e.key.keysym.mod & KMOD_SHIFT) && (e.key.keysym.sym == SDLK_LEFT)){
-					highlight_flag = 1;
 				}else if ((e.key.keysym.mod & KMOD_SHIFT) && (e.key.keysym.sym == SDLK_RIGHT)){
 					highlight_flag = 1;
 				}
@@ -481,21 +528,20 @@ int main(int argc, char* argv[]) {
 							}
 						}
 						if(cursor + 1 < bufferIndex){
-int maxCharWidth;
-TTF_SizeText(font, "|", &maxCharWidth, NULL);  // 'W' is usually one of the widest chars
+							int maxCharWidth;
+							TTF_SizeText(font, "|", &maxCharWidth, NULL);  // 'W' is usually one of the widest chars
+						
+							SDL_Rect highlightRect = {
+								textRect.x,
+								textRect.y,
+								maxCharWidth,
+								textRect.h
+							};
 							
-								SDL_Rect highlightRect = {
-									textRect.x,
-									textRect.y,
-									maxCharWidth,
-									textRect.h
-								};
-								
-								SDL_SetRenderDrawColor(renderer, highlightColor.r, 
-													 highlightColor.g, highlightColor.b, 
-													 highlightColor.a);
-								SDL_RenderFillRect(renderer, &highlightRect);
-							
+							SDL_SetRenderDrawColor(renderer, highlightColor.r, 
+												 highlightColor.g, highlightColor.b, 
+												 highlightColor.a);
+							SDL_RenderFillRect(renderer, &highlightRect);
 						}
 					}
 					SDL_RenderCopy(renderer, textTexture, NULL, &textRect);
