@@ -9,11 +9,31 @@
 
 
 // Helper Functions
+// Easy Swap Function 
 void swap(char *a, char *b) {
     char temp = *a;
     *a = *b;
     *b = temp;
 }
+
+// String tokenization function used to render newlines, especially used instead of strtok to implement empty tokens as well 
+char *strsep(char **stringp, const char *delim) {
+    char *start = *stringp;
+    char *p;
+
+    if (start == NULL) return NULL;  // No more tokens
+
+    p = strpbrk(start, delim);  // Find the first delimiter in the string
+    if (p) {
+        *p = '\0';  // Replace delimiter with null terminator
+        *stringp = p + 1;  // Update string pointer to the next token
+    } else {
+        *stringp = NULL;  // No more delimiters, set string pointer to NULL
+    }
+
+    return start;
+}
+
 
 // Menu Bar 
 int netWidth;
@@ -314,35 +334,33 @@ int main(int argc, char* argv[]) {
         strcpy(tempBuffer, textBuffer);
         
         // Tokenize and render text based on newline characters
-		char* textBufferToken = strtok(tempBuffer, "\n");
+		char* token;
+		char* str = tempBuffer; 
+		
 		int y_off = 0;
 		int tokenCnt = 0;
-		while (textBufferToken != NULL) {
+		
+		while ((token = strsep(&str, "\n")) != NULL) {
 			tokenCnt++;
 			
 			// If token is empty, use a space character instead
-			char* textToRender = strlen(textBufferToken) == 0 ? " " : textBufferToken;
+			char* textToRender = strlen(token) == 0 ? " " : token;
 			
 			SDL_Surface* textSurface = TTF_RenderText_Blended(font, textToRender, textColor);
 			if (textSurface) {
 				SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
 				if (textTexture) {
-					SDL_Rect textRect = {0, y_off+20, textSurface->w, textSurface->h};
+					SDL_Rect textRect = {0, y_off+25, textSurface->w, textSurface->h};
 					y_off += textSurface->h;
-					
+			printf("%d, %d \n", textSurface->w, textSurface->h);
+				
 					SDL_RenderCopy(renderer, textTexture, NULL, &textRect);
 					SDL_DestroyTexture(textTexture);
 				}
 				SDL_FreeSurface(textSurface);
 			}
-			char* temp = textBufferToken + strlen(textBufferToken);
-			while(*temp != '\0' && strchr("\n",*temp)){
-				tokenCnt++;
-				temp++;
-			}
-			textBufferToken = strtok(NULL, "\n");
 		}
-		printf("%d",tokenCnt);
+//		printf("%d",tokenCnt); DEGUBGIN ATTEMPT TO IMPLEMENT A NEW LINE ON AN EMPTY TOKEN 
 		        
 		drawMenuBar();
         SDL_RenderPresent(renderer);
