@@ -183,6 +183,8 @@ int main(int argc, char* argv[]) {
     SDL_Color textColor = {0, 0, 0, 255}; // Black color
     SDL_StartTextInput();
 
+	Uint32 cursorBlinkTime = SDL_GetTicks(); // Cursor Blink time 
+	int showCursor = 1;
 
     while (!quit) {
 
@@ -324,8 +326,21 @@ int main(int argc, char* argv[]) {
                     cursor++;
                 }
             }
+			
+			
         }
-        textBuffer[cursor] = '|'; // Render cursor as '|'
+		
+        if (SDL_GetTicks() - cursorBlinkTime >= 500) {
+            showCursor = !showCursor;
+            cursorBlinkTime = SDL_GetTicks();
+        }
+
+		if (showCursor) {
+			textBuffer[cursor] = '|';
+		}else 
+			textBuffer[cursor] = ' ';
+		
+ //       textBuffer[cursor] = '|'; // Render cursor as '|'
 
         SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255); // White background
         SDL_RenderClear(renderer);
