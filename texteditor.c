@@ -6,6 +6,8 @@
 #include <stdbool.h>
 #include <unistd.h>
 
+#define INITIAL_SIZE 256
+#define GROWTH_FACTOR 2
 
 
 // Helper Functions
@@ -121,13 +123,21 @@ void drawMenuBar() {
 
 
 int main(int argc, char* argv[]) {
-    char textBuffer[256] = ""; // Buffer to store user input
-    char tempBuffer[256]; // Temporary buffer for strtok operations
+	size_t buffer_size = INITIAL_SIZE;
+    char* textBuffer = (char*)malloc(buffer_size); // Buffer to store user input
+	char* tempBuffer = (char*)malloc(buffer_size);
+	
+	if(textBuffer == NULL){
+		perror("Initializing buffer failed!");
+	}
+//    char tempBuffer[256]; // Temporary buffer for strtok operations
     int quit = 0;
 	int cursor = 0;
 	int bufferIndex = 0;
 	int tmpBufferIndex = 0;
 	FILE *file;
+	
+	textBuffer[0] = '\0';
 		
 	if (argc == 2){
 		char *filename = argv[1];  // Get the filename from command-line arguments
@@ -138,15 +148,30 @@ int main(int argc, char* argv[]) {
 			return 1;
 		}
 
-		size_t bytesRead;
+    size_t bytesRead;
+    while ((bytesRead = fread(textBuffer + bufferIndex, 1, buffer_size - bufferIndex, file)) > 0) {
+        bufferIndex += bytesRead;
 
-		while ((bytesRead = fread(textBuffer, 1, 256, file)) > 0) {
-			// Write the buffer content to stdout (or process it as needed)
-			fwrite(textBuffer, 1, bytesRead, stdout);
-		}
-		bufferIndex = strlen(textBuffer);
-		printf("%d",bufferIndex);
-		cursor = bufferIndex;
+        // If we exceed the current buffer size, grow the buffer
+        if (bufferIndex >= buffer_size) {
+            buffer_size *= GROWTH_FACTOR; // Increase buffer size
+            textBuffer = (char*)realloc(textBuffer, buffer_size);
+			tempBuffer = (char*)realloc(tempBuffer, buffer_size);
+            if (textBuffer == NULL || tempBuffer == NULL) {
+                perror("realloc failed");
+                fclose(file);
+                return 1;
+            }
+            printf("Buffer size updated: %zu\n", buffer_size);
+        }
+
+        // Write the buffer to stdout (or process it)
+        fwrite(textBuffer, 1, bufferIndex, stdout);
+    }
+		
+//		bufferIndex = strlen(textBuffer);
+//		printf("%d",bufferIndex);
+//		cursor = bufferIndex;
 	}
 	
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
@@ -193,6 +218,14 @@ int main(int argc, char* argv[]) {
 
 	Uint32 cursorBlinkTime = SDL_GetTicks(); // Cursor Blink time 
 	int showCursor = 1;
+	
+	// Helper keypress event to adjust the aligning of the highlight 
+    SDL_Event keyEvent;
+    keyEvent.type = SDL_KEYDOWN;                // Key press event
+    keyEvent.key.keysym.sym = SDLK_RIGHT;           // The key (e.g., 'A')
+    keyEvent.key.keysym.mod = 1;                // modifiers (e.g., Shift, Ctrl)
+    keyEvent.key.repeat = 0;                    // Not a repeated key press
+
 
     while (!quit) {
 
@@ -211,6 +244,8 @@ int main(int argc, char* argv[]) {
 					textBuffer[cursor] = '\0';
 					fprintf(file, textBuffer);
 					fclose(file);
+					free(textBuffer);
+					free(tempBuffer);
 				}
                 quit = 1;
             } else if (e.type == SDL_WINDOWEVENT) {
@@ -221,66 +256,25 @@ int main(int argc, char* argv[]) {
 						// You can now use the new width and height for rendering or layout adjustments
 						SDL_Log("Window resized to %d x %d", netWidth, netHeight);
 					}
-			}else if (e.type == SDL_KEYDOWN) {	
-//				highlight_flag = 0;
-                SDL_Keymod mod = SDL_GetModState();
-
-				if (mod & KMOD_SHIFT) {
-					printf("Shift is pressed.\n");
+			}else if (e.type == SDL_KEYDOWN) {
+				printf("%c" ,textBuffer[cursor-1]);
+				
+				if(bufferIndex + 10 > buffer_size){
+					buffer_size = buffer_size * GROWTH_FACTOR;
+					textBuffer = (char*)realloc(textBuffer, buffer_size);
+					tempBuffer = (char*)realloc(tempBuffer, buffer_size);
 					
-					// Store current cursor position before any movement
-					int highlight_anchor;
-					
-					if (!highlight_flag) {
-						// First time initiating highlight
-						highlight_flag = 1;
-						highlight_anchor = cursor; // Store the initial position where highlighting began
-						highlight_start = cursor;
-						highlight_end = cursor;
+					if (textBuffer == NULL || tempBuffer == NULL) {
+						perror("realloc failed");
+						free(textBuffer);
+						free(tempBuffer);
+						fclose(file);
+						exit(1);
 					}
-					
-					if (e.key.keysym.sym == SDLK_LEFT) {
-						if (cursor > 0) {
-							// Determine highlight boundaries based on anchor point
-							if (cursor <= highlight_anchor) {
-								highlight_start = cursor-1;
-								highlight_end = highlight_anchor+1;
-							} else {
-								highlight_start = highlight_anchor;
-								highlight_end = cursor;
-							}
-						}
-					}
-					
-					if (e.key.keysym.sym == SDLK_RIGHT) {
-						if (cursor < bufferIndex) {
-								// Determine highlight boundaries based on anchor point
-							if (cursor >= highlight_anchor) {
-								highlight_start = highlight_anchor;
-								highlight_end = cursor+1;
-							} else {
-								highlight_start = cursor+1;
-								highlight_end = highlight_anchor+1;
-							}
-						}
-					}
-				}                
-				else if (mod & KMOD_CTRL){
-					printf("Control is pressed.\n");
-					if(e.key.keysym.sym == SDLK_a){
-						highlight_flag = 1;
-						highlight_start = 0;
-						highlight_end = bufferIndex;
-					}
+					printf("Buffer Updated! Buffer size: %d",buffer_size);					
 				}
-                else if (mod & KMOD_ALT)   printf("Alt is pressed.\n");
-                else if (mod & KMOD_GUI)   printf("GUI (Windows/Command) is pressed.\n");
-				else highlight_flag = 0;
-					
-
-
-
-
+				
+//				highlight_flag = 0;
                 if (e.key.keysym.sym == SDLK_BACKSPACE && cursor > 0) {
 					textBuffer[cursor-1] = textBuffer[cursor];
 					cursor--;
@@ -345,8 +339,8 @@ int main(int argc, char* argv[]) {
 						i++;
 						swap(&textBuffer[cursor - 1], &textBuffer[cursor]);
 						cursor--;
-	
 					}	
+						printf("%d\n",cursor);
 				} else if (e.key.keysym.sym == SDLK_DOWN) {
 					if (cursor < bufferIndex - 1) {  // Ensure we're not at the end
 						int currentCol = 0;
@@ -380,6 +374,7 @@ int main(int argc, char* argv[]) {
 							}
 						}
 					}
+					printf("%d\n",cursor);
 				} else if ((e.key.keysym.mod & KMOD_CTRL) && e.key.keysym.sym == SDLK_v) {
 					char* copied_text = SDL_GetClipboardText();
 					char* cleaned_text = malloc(strlen(copied_text) + 1);
@@ -401,7 +396,23 @@ int main(int argc, char* argv[]) {
 						// Create a cleaned version of the text
 						
 						// Clean up the text - remove \r characters
+						while((bufferIndex + paste_len) > buffer_size){
+							buffer_size = buffer_size * GROWTH_FACTOR;
+							textBuffer = (char*)realloc(textBuffer, buffer_size);
+							tempBuffer = (char*)realloc(tempBuffer, buffer_size);
+
+							if (textBuffer == NULL || tempBuffer == NULL) {
+								perror("realloc failed");
+								free(textBuffer);
+								free(tempBuffer);
+								fclose(file);
+								exit(1);
+							}
+							printf("Buffer Updated! Buffer size: %d",buffer_size);					
+
+						}
 						
+						if((bufferIndex + paste_len) < buffer_size){
 						
 						// Make sure we have enough space in the buffer
 //						if (buffer_len + paste_len < bufferIndex) {  // Assuming BUFFER_MAX_SIZE is defined
@@ -419,15 +430,98 @@ int main(int argc, char* argv[]) {
 							bufferIndex += paste_len;
 							cursor += paste_len;
 //						}
-						
+						}
 						// Free the clipboard text
 //						SDL_free(copied_text);
 					}
 				}else if ((e.key.keysym.mod & KMOD_SHIFT) && (e.key.keysym.sym == SDLK_RIGHT)){
 					highlight_flag = 1;
 				}
+				
+                SDL_Keymod mod = SDL_GetModState();
+
+				if (mod & KMOD_SHIFT) {
+//					printf("Shift is pressed.\n");
+					
+					// Store current cursor position before any movement
+					int highlight_anchor;
+					
+					if (!highlight_flag) {
+						// First time initiating highlight
+						highlight_flag = 1;
+						highlight_anchor = cursor; // Store the initial position where highlighting began
+						highlight_start = cursor;
+						highlight_end = cursor;
+					}
+					
+					if (e.key.keysym.sym == SDLK_LEFT) {
+						if (cursor > 0) {
+							// Determine highlight boundaries based on anchor point
+							if (cursor <= highlight_anchor) {
+								highlight_start = cursor;
+								highlight_end = highlight_anchor+1;
+							} else {
+								highlight_start = highlight_anchor;
+								highlight_end = cursor;
+							}
+						}
+					}
+					
+					if (e.key.keysym.sym == SDLK_UP) {
+						if (cursor >= 0) {
+							// Determine highlight boundaries based on anchor point
+							if (cursor <= highlight_anchor) {
+								highlight_start = cursor-1;
+								highlight_end = highlight_anchor+1;
+							} else {
+								highlight_start = highlight_anchor;
+								highlight_end = cursor;
+							}
+							printf("%d\n",cursor);
+						}
+					}
+					
+					if (e.key.keysym.sym == SDLK_RIGHT) {
+						if (cursor < bufferIndex) {
+								// Determine highlight boundaries based on anchor point
+							if (cursor >= highlight_anchor) {
+								highlight_start = highlight_anchor;
+								highlight_end = cursor+1;
+							} else {
+								highlight_start = cursor+1;
+								highlight_end = highlight_anchor+1;
+							}
+						}
+					}
+			
+					if (e.key.keysym.sym == SDLK_DOWN) {
+						if (cursor < bufferIndex) {
+								// Determine highlight boundaries based on anchor point
+							if (cursor >= highlight_anchor) {
+								highlight_start = highlight_anchor;
+								highlight_end = cursor+1;
+							} else {
+								highlight_start = cursor+1;
+								highlight_end = highlight_anchor+1;
+							}
+							printf("%d\n",cursor);
+						}
+					}
+				}                
+				else if (mod & KMOD_CTRL){
+//					printf("Control is pressed.\n");
+					if(e.key.keysym.sym == SDLK_a){
+						highlight_flag = 1;
+						highlight_start = 0;
+						highlight_end = bufferIndex;
+					}
+				}
+                else if (mod & KMOD_ALT);   //printf("Alt is pressed.\n");
+                else if (mod & KMOD_GUI);  //printf("GUI (Windows/Command) is pressed.\n");
+				else highlight_flag = 0;
+
             } else if (e.type == SDL_TEXTINPUT) {
-                if (bufferIndex < sizeof(textBuffer) - 1) {
+                if (bufferIndex < buffer_size - 1) {
 					tmpBufferIndex = bufferIndex; // Remember to reuse this code
 					while(cursor < tmpBufferIndex){
 						swap(&textBuffer[tmpBufferIndex+1], &textBuffer[tmpBufferIndex]);
@@ -526,22 +620,6 @@ int main(int argc, char* argv[]) {
 													 highlightColor.a);
 								SDL_RenderFillRect(renderer, &highlightRect);
 							}
-						}
-						if(cursor + 1 < bufferIndex){
-							int maxCharWidth;
-							TTF_SizeText(font, "|", &maxCharWidth, NULL);  // 'W' is usually one of the widest chars
-						
-							SDL_Rect highlightRect = {
-								textRect.x,
-								textRect.y,
-								maxCharWidth,
-								textRect.h
-							};
-							
-							SDL_SetRenderDrawColor(renderer, highlightColor.r, 
-												 highlightColor.g, highlightColor.b, 
-												 highlightColor.a);
-							SDL_RenderFillRect(renderer, &highlightRect);
 						}
 					}
 					SDL_RenderCopy(renderer, textTexture, NULL, &textRect);
