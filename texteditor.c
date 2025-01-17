@@ -60,6 +60,9 @@ bool highlight_flag = 0;
 int highlight_start;
 int highlight_end;
 
+// Temporary flag for the shift operation
+int temp_flag;
+
 // Menu Bar 
 int netWidth;
 int netHeight;
@@ -293,13 +296,38 @@ int main(int argc, char* argv[]) {
 				
 //				highlight_flag = 0;
                 if (e.key.keysym.sym == SDLK_BACKSPACE && cursor > 0) {
-					textBuffer[cursor-1] = textBuffer[cursor];
-					cursor--;
-					for(int i=1; i<bufferIndex; i++){
-						textBuffer[cursor+i] = textBuffer[cursor+i+1];
-                    }					
-					textBuffer[bufferIndex] = '\0';
-                    bufferIndex--;
+					
+					if(highlight_flag == 0){
+						textBuffer[cursor-1] = textBuffer[cursor];
+						cursor--;
+						for(int i=1; i<bufferIndex; i++){
+							textBuffer[cursor+i] = textBuffer[cursor+i+1];
+						}					
+						textBuffer[bufferIndex] = '\0';
+						bufferIndex--;
+					}else{
+						if(cursor <= highlight_start){
+							for(int i=highlight_start; i<highlight_end; i++){
+								swap(&textBuffer[cursor], &textBuffer[cursor+1]);
+								cursor++;
+							}
+						}
+						
+						for(int i=highlight_end; i>highlight_start; i--){
+//							if(cursor >= i){
+								textBuffer[cursor-1] = textBuffer[cursor];
+								cursor--;
+								for(int j=1; j<bufferIndex; j++){
+									textBuffer[cursor+j] = textBuffer[cursor+j +1];
+								}					
+								textBuffer[bufferIndex] = '\0';
+								bufferIndex--;
+//							}
+						}
+					}
+					
+					
+					
                 } else if (e.key.keysym.sym == SDLK_RETURN) {
 					tmpBufferIndex = bufferIndex; // Remember to reuse this code 
 					while(cursor < tmpBufferIndex){
@@ -466,6 +494,8 @@ int main(int argc, char* argv[]) {
 				if (mod & KMOD_SHIFT) {
 //					printf("Shift is pressed.\n");
 					
+					temp_flag = 0;
+					
 					// Store current cursor position before any movement
 					int highlight_anchor;
 					
@@ -478,6 +508,7 @@ int main(int argc, char* argv[]) {
 					}
 					
 					if (e.key.keysym.sym == SDLK_LEFT) {
+						temp_flag = 0;
 						if (cursor >= 0) {
 							// Determine highlight boundaries based on anchor point
 							if (cursor <= highlight_anchor) {
@@ -491,6 +522,7 @@ int main(int argc, char* argv[]) {
 					}
 					
 					if (e.key.keysym.sym == SDLK_UP) {
+						temp_flag = 0;
 						if (cursor >= 0) {
 							// Determine highlight boundaries based on anchor point
 							if (cursor <= highlight_anchor) {
@@ -505,6 +537,7 @@ int main(int argc, char* argv[]) {
 					}
 					
 					if (e.key.keysym.sym == SDLK_RIGHT) {
+						temp_flag = 0;
 						if (cursor <= bufferIndex) {
 								// Determine highlight boundaries based on anchor point
 							if (cursor >= highlight_anchor) {
@@ -518,6 +551,7 @@ int main(int argc, char* argv[]) {
 					}
 			
 					if (e.key.keysym.sym == SDLK_DOWN) {
+						temp_flag = 0;
 						if (cursor <= bufferIndex) {
 								// Determine highlight boundaries based on anchor point
 							if (cursor >= highlight_anchor) {
@@ -532,11 +566,13 @@ int main(int argc, char* argv[]) {
 					}
 					
 					// Patch to remove the highlight from the cursor 
-					if(cursor <= highlight_start)
-						highlight_start = highlight_start + 1;
-					else if(highlight_end >= cursor)
-						highlight_end = highlight_end - 1;
-
+					
+					if(temp_flag){
+						if(cursor <= highlight_start)
+							highlight_start = highlight_start + 1;
+						else if(highlight_end >= cursor)
+							highlight_end = highlight_end - 1;
+					}
 				}                
 				else if (mod & KMOD_CTRL){
 //					printf("Control is pressed.\n");
