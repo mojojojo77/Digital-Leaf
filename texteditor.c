@@ -508,7 +508,7 @@ int main(int argc, char* argv[]) {
 					}
 					
 					if (e.key.keysym.sym == SDLK_LEFT) {
-						temp_flag = 0;
+						temp_flag = 1;
 						if (cursor >= 0) {
 							// Determine highlight boundaries based on anchor point
 							if (cursor <= highlight_anchor) {
@@ -522,7 +522,7 @@ int main(int argc, char* argv[]) {
 					}
 					
 					if (e.key.keysym.sym == SDLK_UP) {
-						temp_flag = 0;
+						temp_flag = 1;
 						if (cursor >= 0) {
 							// Determine highlight boundaries based on anchor point
 							if (cursor <= highlight_anchor) {
@@ -537,7 +537,7 @@ int main(int argc, char* argv[]) {
 					}
 					
 					if (e.key.keysym.sym == SDLK_RIGHT) {
-						temp_flag = 0;
+						temp_flag = 1;
 						if (cursor <= bufferIndex) {
 								// Determine highlight boundaries based on anchor point
 							if (cursor >= highlight_anchor) {
@@ -551,7 +551,7 @@ int main(int argc, char* argv[]) {
 					}
 			
 					if (e.key.keysym.sym == SDLK_DOWN) {
-						temp_flag = 0;
+						temp_flag = 1;
 						if (cursor <= bufferIndex) {
 								// Determine highlight boundaries based on anchor point
 							if (cursor >= highlight_anchor) {
@@ -580,7 +580,11 @@ int main(int argc, char* argv[]) {
 						highlight_flag = 1;
 						highlight_start = 0;
 						highlight_end = bufferIndex;
-					}
+						while(cursor < bufferIndex){
+							swap(&textBuffer[cursor], &textBuffer[cursor+1]);
+							cursor++;
+						}
+					}					
 				}
                 else if (mod & KMOD_ALT);   //printf("Alt is pressed.\n");
                 else if (mod & KMOD_GUI);  //printf("GUI (Windows/Command) is pressed.\n");
