@@ -54,6 +54,9 @@ char *strsep(char **stringp, const char *delim) {
     return start;
 }
 
+// Line number
+int line_number;
+int cursor_line;
 
 // Highlight flag
 bool highlight_flag = 0;
@@ -67,6 +70,9 @@ int temp_flag;
 int render_y_off = 25;
 // To store the height of the entire block that is currently being rendered
 int currentTextBlockHeight;
+
+// Count the number of scrolls and substract when scroll up. To align the higlight line text with the cursor
+int scroll_count;
 
 // Menu Bar 
 int netWidth;
@@ -91,6 +97,14 @@ SDL_Renderer* renderer = NULL;
 TTF_Font* font = NULL;
 TTF_Font* font_menu = NULL;
 
+
+void drawcursor(){
+	SDL_SetRenderDrawColor(renderer, 0, 150, 150, 100);
+	SDL_GetWindowSize(window, &netWidth, &netHeight);
+	SDL_Rect cursor_highlight = {0, 25+ ((cursor_line*TTF_FontHeight(font)) + scroll_count*TTF_FontHeight(font))%netHeight, netWidth, TTF_FontHeight(font)};
+	SDL_RenderFillRect(renderer, &cursor_highlight);
+	
+}
 
 void drawMenuBar() {
 	// Set the color for the menu bar (dark gray)
@@ -191,7 +205,7 @@ int main(int argc, char* argv[]) {
             printf("Buffer size updated: %zu\n", buffer_size);
         }
         // Write the buffer to stdout (or process it)
-        fwrite(textBuffer, 1, bufferIndex, stdout);
+ //       fwrite(textBuffer, 1, bufferIndex, stdout);
     }
 		
 //		bufferIndex = strlen(textBuffer);
@@ -244,13 +258,13 @@ int main(int argc, char* argv[]) {
 	Uint32 cursorBlinkTime = SDL_GetTicks(); // Cursor Blink time 
 	int showCursor = 1;
 	
-	// Helper keypress event to adjust the aligning of the highlight 
+/***	// Helper keypress event to adjust the aligning of the highlight 
     SDL_Event keyEvent;
     keyEvent.type = SDL_KEYDOWN;                // Key press event
     keyEvent.key.keysym.sym = SDLK_RIGHT;           // The key (e.g., 'A')
     keyEvent.key.keysym.mod = 1;                // modifiers (e.g., Shift, Ctrl)
     keyEvent.key.repeat = 0;                    // Not a repeated key press
-
+***/
 
     while (!quit) {
 
@@ -283,6 +297,7 @@ int main(int argc, char* argv[]) {
 					}
 			} else if (e.type == SDL_MOUSEWHEEL){
 				if((e.wheel.y > 0 || currentTextBlockHeight + render_y_off > netHeight) && (render_y_off <= 0 || e.wheel.y < 0)){
+					scroll_count += e.wheel.y;
 					render_y_off += (e.wheel.y*25);
 				}
 				printf("%d \n", render_y_off);
@@ -349,6 +364,23 @@ int main(int argc, char* argv[]) {
                     textBuffer[cursor] = '\n'; // Insert a newline character on Return key
 					bufferIndex++;
                     cursor++;
+					
+					if(40+(cursor_line*TTF_FontHeight(font)) > netHeight){
+						printf("HEREREEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE");
+							SDL_Event event;
+							// Set up the mouse wheel event
+							event.type = SDL_MOUSEWHEEL;
+							event.wheel.x = 0;  // Horizontal scroll amount (0 for vertical scroll)
+							event.wheel.y = -1; // Negative for downward scroll
+							event.wheel.direction = SDL_MOUSEWHEEL_NORMAL;
+							
+							// Push the event to SDL's event queue
+							SDL_PushEvent(&event);
+							SDL_PushEvent(&event);
+					}
+						
+						
+					
                 } else if (e.key.keysym.sym == SDLK_ESCAPE) {
 					if(argc == 2){
 						ftruncate(fileno(file), 0);
@@ -456,13 +488,13 @@ int main(int argc, char* argv[]) {
 						while((bufferIndex + paste_len) > buffer_size){
 							buffer_size = buffer_size * GROWTH_FACTOR;
 							textBuffer = (char*)realloc(textBuffer, buffer_size);
-							tempBuffer = (char*)realloc(tempBuffer, buffer_size);
+//							tempBuffer = (char*)realloc(tempBuffer, buffer_size);
 
 							if (textBuffer == NULL || tempBuffer == NULL) {
 								perror("realloc failed");
 								free(textBuffer);
 								free(tempBuffer);
-								fclose(file);
+								fclose(file);	
 								exit(1);
 							}
 							printf("Buffer Updated! Buffer size: %d",buffer_size);					
@@ -626,13 +658,63 @@ int main(int argc, char* argv[]) {
 		}else 
 			textBuffer[cursor] = ' ';
 		
+		cursor_line = 0;
+		
+		for(int i=cursor; i >= 0; i--){
+			if(textBuffer[i] == '\n')
+				cursor_line++;
+		}
+		
+//		printf("Cursor Line: %d \n",cursor_line);
+		
  //       textBuffer[cursor] = '|'; // Render cursor as '|'
 
         SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255); // White background
         SDL_RenderClear(renderer);
+		SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
 
-        // Copy the buffer because strtok modifies the original string
-        strcpy(tempBuffer, textBuffer);
+
+		int temp_cursor = cursor;
+		int temp_cnt = 0;
+
+		// Clear tempBuffer
+		tempBuffer[0] = '\0';
+
+		// Find the starting position for the last 50 lines
+		while (temp_cursor >= 0 && temp_cnt < 50) {
+			if (textBuffer[temp_cursor] == '\n') {
+				temp_cnt++;
+			}
+			temp_cursor--;
+		}
+
+		int start_pos = temp_cursor + 1; // Start position for backward lines
+
+		// Reset cursor and counter to find the ending position for the next 50 lines
+		temp_cursor = cursor;
+		temp_cnt = 0;
+
+		while (temp_cursor <= bufferIndex && temp_cnt < 50) {
+			if (textBuffer[temp_cursor] == '\n') {
+				temp_cnt++;
+			}
+			temp_cursor++;
+		}
+
+		int end_pos = temp_cursor; // End position for forward lines
+
+		// Copy the slice of text into tempBuffer
+		int length = end_pos - start_pos;
+		if (length > 0) {
+			strncpy(tempBuffer, textBuffer + start_pos, length);
+			tempBuffer[length] = '\0'; // Null-terminate the tempBuffer
+		} else {
+			fprintf(stderr, "Error: Buffer size exceeded or invalid length.\n");
+		}
+		
+//		printf(tempBuffer);
+        
+//		strcpy(tempBuffer, textBuffer);
         
         // Tokenize and render text based on newline characters
 		char* token;
@@ -643,6 +725,8 @@ int main(int argc, char* argv[]) {
 		int highlight_text_index = 0;
 		int totalCharsProcessed = 0;
 		
+		drawcursor();			
+
 		while ((token = strsep(&str, "\n")) != NULL) {
 			tokenCnt++;
 			int lineLength = strlen(token);
@@ -712,9 +796,13 @@ int main(int argc, char* argv[]) {
 			currentTextBlockHeight = y_off;
 			totalCharsProcessed += lineLength + 1;
 		}
-//		printf("%d",tokenCnt); DEGUBGIN ATTEMPT TO IMPLEMENT A NEW LINE ON AN EMPTY TOKEN 
-		        
+
+		line_number = tokenCnt;
+//		printf("%d\n", line_number);
+
 		drawMenuBar();
+
+//		printf("%d",tokenCnt); DEGUBGIN ATTEMPT TO IMPLEMENT A NEW LINE ON AN EMPTY TOKEN 
         SDL_RenderPresent(renderer);
     }
 
