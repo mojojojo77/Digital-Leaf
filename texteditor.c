@@ -63,6 +63,11 @@ int highlight_end;
 // Temporary flag for the shift operation
 int temp_flag;
 
+// Y offset of the rendered textbox on the screen
+int render_y_off = 25;
+// To store the height of the entire block that is currently being rendered
+int currentTextBlockHeight;
+
 // Menu Bar 
 int netWidth;
 int netHeight;
@@ -276,7 +281,14 @@ int main(int argc, char* argv[]) {
 						// You can now use the new width and height for rendering or layout adjustments
 						SDL_Log("Window resized to %d x %d", netWidth, netHeight);
 					}
-			}else if (e.type == SDL_KEYDOWN) {
+			} else if (e.type == SDL_MOUSEWHEEL){
+				if((e.wheel.y > 0 || currentTextBlockHeight + render_y_off > netHeight) && (render_y_off <= 0 || e.wheel.y < 0)){
+					render_y_off += (e.wheel.y*25);
+				}
+				printf("%d \n", render_y_off);
+				printf("%d \n",e.wheel.y);
+				
+			} else if (e.type == SDL_KEYDOWN) {
 				printf("%c" ,textBuffer[cursor-1]);
 				
 				if(bufferIndex + 10 > buffer_size){
@@ -642,7 +654,7 @@ int main(int argc, char* argv[]) {
 			if (textSurface) {
 				SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
 				if (textTexture) {
-					SDL_Rect textRect = {0, y_off+25, textSurface->w, textSurface->h};
+					SDL_Rect textRect = {0, y_off + render_y_off, textSurface->w, textSurface->h};
 					y_off += textSurface->h;
 //					printf("%d, %d \n", textSurface->w, textSurface->h);
 
@@ -697,6 +709,7 @@ int main(int argc, char* argv[]) {
 				}
 				SDL_FreeSurface(textSurface);
 			}
+			currentTextBlockHeight = y_off;
 			totalCharsProcessed += lineLength + 1;
 		}
 //		printf("%d",tokenCnt); DEGUBGIN ATTEMPT TO IMPLEMENT A NEW LINE ON AN EMPTY TOKEN 
