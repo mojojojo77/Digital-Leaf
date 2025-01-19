@@ -1,16 +1,20 @@
 #define SDL_MAIN_HANDLED
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
+#include <SDL2/SDL_syswm.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
 #include <unistd.h>
+
 
 #define INITIAL_SIZE 256
 #define GROWTH_FACTOR 2
 
 
 // Helper Functions
+
+
 // Easy Swap Function 
 void swap(char *a, char *b) {
     char temp = *a;
@@ -58,6 +62,9 @@ char *strsep(char **stringp, const char *delim) {
 int line_number;
 int cursor_line;
 
+// Height of the cursors highlight to render from 
+int cursor_highlight_start;
+
 // Highlight flag
 bool highlight_flag = 0;
 int highlight_start;
@@ -101,13 +108,20 @@ TTF_Font* font_menu = NULL;
 void drawcursor(){
 	SDL_SetRenderDrawColor(renderer, 0, 150, 150, 100);
 	SDL_GetWindowSize(window, &netWidth, &netHeight);
-	SDL_Rect cursor_highlight = {0, 25+ ((cursor_line*TTF_FontHeight(font)) + scroll_count*TTF_FontHeight(font))%netHeight, netWidth, TTF_FontHeight(font)};
-	SDL_RenderFillRect(renderer, &cursor_highlight);
 	
+	// Calculate the cursor's Y position
+    int cursorY = 20 + ((cursor_line * TTF_FontHeight(font)) + render_y_off);
+   
+   if (cursorY >= 20 && cursorY < netHeight) {
+	    cursor_highlight_start = 25 + ((cursor_line*TTF_FontHeight(font)) + scroll_count*TTF_FontHeight(font))%netHeight;
+		SDL_Rect cursor_highlight = {0, cursor_highlight_start, netWidth, TTF_FontHeight(font)};
+
+		SDL_RenderFillRect(renderer, &cursor_highlight);
+   }
 }
 
 void drawMenuBar() {
-	// Set the color for the menu bar (dark gray)
+	// Set the color for the menu bar (dark gray)	
 	SDL_SetRenderDrawColor(renderer, 150, 150, 150, 255);
 	SDL_GetWindowSize(window, &netWidth, &netHeight);
 	SDL_Rect menuBar = {0, 0, netWidth, MENU_HEIGHT};
@@ -233,7 +247,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-	renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+	renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED| SDL_RENDERER_PRESENTVSYNC);
     if (!renderer) {
         printf("Renderer could not be created! SDL_Error: %s\n", SDL_GetError());
         SDL_DestroyWindow(window);
@@ -258,6 +272,11 @@ int main(int argc, char* argv[]) {
 	Uint32 cursorBlinkTime = SDL_GetTicks(); // Cursor Blink time 
 	int showCursor = 1;
 	
+	
+	SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+	
+//	SDL_SetWindowOpacity(window, 0.9f);
+
 /***	// Helper keypress event to adjust the aligning of the highlight 
     SDL_Event keyEvent;
     keyEvent.type = SDL_KEYDOWN;                // Key press event
@@ -296,15 +315,28 @@ int main(int argc, char* argv[]) {
 						SDL_Log("Window resized to %d x %d", netWidth, netHeight);
 					}
 			} else if (e.type == SDL_MOUSEWHEEL){
-				if((e.wheel.y > 0 || currentTextBlockHeight + render_y_off > netHeight) && (render_y_off <= 0 || e.wheel.y < 0)){
+				if((e.wheel.y > 0 || currentTextBlockHeight + render_y_off > netHeight) && (render_y_off < 25 || e.wheel.y < 0)){
+					SDL_Event event;
+					if(e.wheel.y == 1){
+						event.type = SDL_KEYDOWN;
+						event.key.keysym.sym = SDLK_DOWN;
+						SDL_PushEvent(&event);
+					}
+					else if(e.wheel.y == -1){
+						event.type = SDL_KEYDOWN;
+						event.key.keysym.sym = SDLK_UP;
+						SDL_PushEvent(&event);
+					}
+					
 					scroll_count += e.wheel.y;
-					render_y_off += (e.wheel.y*25);
+					render_y_off += (e.wheel.y*TTF_FontHeight(font));
 				}
-				printf("%d \n", render_y_off);
-				printf("%d \n",e.wheel.y);
+				if(render_y_off > 25) render_y_off = 25;
+				
+//				printf("%d \n", line_number);
 				
 			} else if (e.type == SDL_KEYDOWN) {
-				printf("%c" ,textBuffer[cursor-1]);
+//				printf("%c" ,textBuffer[cursor-1]);
 				
 				if(bufferIndex + 10 > buffer_size){
 					buffer_size = buffer_size * GROWTH_FACTOR;
@@ -329,7 +361,7 @@ int main(int argc, char* argv[]) {
 						cursor--;
 						for(int i=1; i<bufferIndex; i++){
 							textBuffer[cursor+i] = textBuffer[cursor+i+1];
-						}					
+						}
 						textBuffer[bufferIndex] = '\0';
 						bufferIndex--;
 					}else{
@@ -365,8 +397,9 @@ int main(int argc, char* argv[]) {
 					bufferIndex++;
                     cursor++;
 					
-					if(40+(cursor_line*TTF_FontHeight(font)) > netHeight){
-						printf("HEREREEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE");
+					SDL_GetWindowSize(window, &netWidth, &netHeight);
+/***					if(80+(cursor_line*TTF_FontHeight(font)) >= netHeight){
+//						printf("HEREREEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE");
 							SDL_Event event;
 							// Set up the mouse wheel event
 							event.type = SDL_MOUSEWHEEL;
@@ -376,11 +409,10 @@ int main(int argc, char* argv[]) {
 							
 							// Push the event to SDL's event queue
 							SDL_PushEvent(&event);
-							SDL_PushEvent(&event);
-					}
-						
-						
-					
+							scroll_count -= 1;
+							render_y_off -= TTF_FontHeight(font);
+					}						
+***/
                 } else if (e.key.keysym.sym == SDLK_ESCAPE) {
 					if(argc == 2){
 						ftruncate(fileno(file), 0);
@@ -401,7 +433,24 @@ int main(int argc, char* argv[]) {
                     swap(&textBuffer[cursor + 1], &textBuffer[cursor]);
                     ++cursor;
                 } else if (e.key.keysym.sym == SDLK_UP) {
+					
+/***					if(cursor_highlight_start <= 30){
+						printf("HEREREEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE");
+							SDL_Event event;
+							// Set up the mouse wheel event
+							event.type = SDL_MOUSEWHEEL;
+							event.wheel.x = 0;  // Horizontal scroll amount (0 for vertical scroll)
+							event.wheel.y = 1; // Negative for downward scroll
+							event.wheel.direction = SDL_MOUSEWHEEL_NORMAL;
+							event.key.repeat = 0; // Not a repeated key
 
+							// Push the event to SDL's event queue
+							SDL_PushEvent(&event);
+							scroll_count += 1;
+							render_y_off += TTF_FontHeight(font);
+					}						
+
+***/
 					int i = 0;
 					int j;
 					int flag_1 = 0;
@@ -429,8 +478,29 @@ int main(int argc, char* argv[]) {
 						swap(&textBuffer[cursor - 1], &textBuffer[cursor]);
 						cursor--;
 					}	
-						printf("%d\n",cursor);
+//						printf("%d\n",cursor);
 				} else if (e.key.keysym.sym == SDLK_DOWN) {
+
+/***					
+					SDL_GetWindowSize(window, &netWidth, &netHeight);
+					printf("%d, %d \n", highlight_end, netHeight);
+					if(cursor_highlight_start >= netHeight - 30){
+						printf("HEREREEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE");
+							SDL_Event event;
+							// Set up the mouse wheel event
+							event.type = SDL_MOUSEWHEEL;
+							event.wheel.x = 0;  // Horizontal scroll amount (0 for vertical scroll)
+							event.wheel.y = -1; // Negative for downward scroll
+							event.wheel.direction = SDL_MOUSEWHEEL_NORMAL;
+							event.key.repeat = 0; // Not a repeated key
+
+							// Push the event to SDL's event queue
+							SDL_PushEvent(&event);
+							scroll_count -= 1;
+							render_y_off -= TTF_FontHeight(font);
+
+					}						
+***/
 					if (cursor < bufferIndex - 1) {  // Ensure we're not at the end
 						int currentCol = 0;
 						int tempCursor = cursor;
@@ -463,7 +533,7 @@ int main(int argc, char* argv[]) {
 							}
 						}
 					}
-					printf("%d\n",cursor);
+//					printf("%d\n",cursor);
 				} else if ((e.key.keysym.mod & KMOD_CTRL) && e.key.keysym.sym == SDLK_v) {
 					char* copied_text = SDL_GetClipboardText();
 					char* cleaned_text = malloc(strlen(copied_text) + 1);
@@ -491,7 +561,7 @@ int main(int argc, char* argv[]) {
 //							tempBuffer = (char*)realloc(tempBuffer, buffer_size);
 
 							if (textBuffer == NULL || tempBuffer == NULL) {
-								perror("realloc failed");
+								printf("realloc failed");
 								free(textBuffer);
 								free(tempBuffer);
 								fclose(file);	
@@ -521,8 +591,9 @@ int main(int argc, char* argv[]) {
 //						}
 						}
 						// Free the clipboard text
-//						SDL_free(copied_text);
+						SDL_free(copied_text);
 					}
+					
 				} else if ((e.key.keysym.mod & KMOD_CTRL) && e.key.keysym.sym == SDLK_c){
 					
 					if(highlight_flag == 1){
@@ -576,7 +647,7 @@ int main(int argc, char* argv[]) {
 								highlight_start = highlight_anchor;
 								highlight_end = cursor+1;
 							}
-							printf("%d\n",cursor);
+//							printf("%d\n",cursor);
 						}
 					}
 					
@@ -605,7 +676,7 @@ int main(int argc, char* argv[]) {
 								highlight_start = cursor;
 								highlight_end = highlight_anchor+1;
 							}
-							printf("%d\n",cursor);
+//							printf("%d\n",cursor);
 						}
 					}
 					
@@ -668,10 +739,17 @@ int main(int argc, char* argv[]) {
 //		printf("Cursor Line: %d \n",cursor_line);
 		
  //       textBuffer[cursor] = '|'; // Render cursor as '|'
+//       SDL_SetRenderDrawColor(renderer, 255, 255, 255, 100); // White background
 
-        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255); // White background
-        SDL_RenderClear(renderer);
-		SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+		
+		// Set color to red for the rectangle (this will be the color key)
+		SDL_SetRenderDrawColor(renderer, 255, 255, 255,0);
+		SDL_RenderClear(renderer);
+		
+		// Update screen
+//		SDL_RenderPresent(renderer);
+        
+
 
 
 		int temp_cursor = cursor;
@@ -709,7 +787,7 @@ int main(int argc, char* argv[]) {
 			strncpy(tempBuffer, textBuffer + start_pos, length);
 			tempBuffer[length] = '\0'; // Null-terminate the tempBuffer
 		} else {
-			fprintf(stderr, "Error: Buffer size exceeded or invalid length.\n");
+			printf("Error: Buffer size exceeded or invalid length.\n");
 		}
 		
 //		printf(tempBuffer);
@@ -724,7 +802,7 @@ int main(int argc, char* argv[]) {
 		int tokenCnt = 0;
 		int highlight_text_index = 0;
 		int totalCharsProcessed = 0;
-		
+
 		drawcursor();			
 
 		while ((token = strsep(&str, "\n")) != NULL) {
@@ -796,12 +874,10 @@ int main(int argc, char* argv[]) {
 			currentTextBlockHeight = y_off;
 			totalCharsProcessed += lineLength + 1;
 		}
-
+		drawMenuBar();
+		
 		line_number = tokenCnt;
 //		printf("%d\n", line_number);
-
-		drawMenuBar();
-
 //		printf("%d",tokenCnt); DEGUBGIN ATTEMPT TO IMPLEMENT A NEW LINE ON AN EMPTY TOKEN 
         SDL_RenderPresent(renderer);
     }

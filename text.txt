@@ -1,0 +1,198 @@
+This is the first line
+this is the second line 
+this is the third line
+this is the fourth line 
+
+#define SDL_MAIN_HANDLED
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_ttf.h>
+#include <SDL2/SDL_syswm.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdbool.h>
+#include <unistd.h>
+
+// Constants
+#define INITIAL_BUFFER_SIZE 256
+#define GROWTH_FACTOR 2
+#define VISIBLE_LINES 100
+#define MENU_HEIGHT 20
+#define MENU_ITEM_WIDTH 40
+#define RENDER_Y_OFFSET 25
+
+// Structure definitions
+typedef struct {
+    char* data;
+    size_t size;
+    size_t capacity;
+    int cursor;
+} TextBuffer;
+
+typedef struct {
+    int start;
+    int end;
+    bool active;
+} Selection;
+
+typedef struct {
+    SDL_Window* window;
+    SDL_Renderer* renderer;
+    TTF_Font* font;
+    TTF_Font* menuFont;
+    int width;
+    int height;
+    int lineHeight;
+    int scrollOffset;
+    int scrollCount;
+} EditorWindow;
+
+// Function declarations
+static TextBuffer* createBuffer(size_t initialCapacity);
+static void destroyBuffer(TextBuffer* buffer);
+static bool expandBufferIfNeeded(TextBuffer* buffer, size_t additionalSpace);
+static void insertCharacter(TextBuffer* buffer, char c);
+static void deleteCharacter(TextBuffer* buffer);
+static void renderText(EditorWindow* window, TextBuffer* buffer, Selection* selection);
+static void handleKeyPress(SDL_Event* e, TextBuffer* buffer, Selection* selection, EditorWindow* window);
+static void saveToFile(const char* filename, TextBuffer* buffer);
+
+// Main function
+int main(int argc, char* argv[]) {
+    // Initialize SDL and TTF
+    if (SDL_Init(SDL_INIT_VIDEO) < 0 || TTF_Init() == -1) {
+        fprintf(stderr, "Initialization failed: Pp #\n", SDL_GetError());
+        return 1;
+    }
+
+    EditorWindow window = {
+        .window = SDL_CreateWindow("Text Editor", SDL_WINDOWPOS_UNDEFINED, 
+                                 SDL_WINDOWPOS_UNDEFINED, 800, 600, 
+                                 SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE),
+        .renderer = NULL,
+        .font = NULL,
+        .menuFont = NULL,
+        .width = 800,
+        .height = 600,
+        .scrollOffset = RENDER_Y_OFFSET,
+        .scrollCount = 0
+    };
+
+    if (!window.window) {
+        fprintf(stderr, "Window creation failed: (null)\n", SDL_GetError());
+        goto cleanup;
+    }
+
+    window.renderer = SDL_CreateRenderer(window.window, -1, 
+                                       SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    if (!window.renderer) {
+        fprintf(stderr, "Renderer creation failed: (null)\n", SDL_GetError());
+        goto cleanup;
+    }
+
+    window.font = TTF_OpenFont("fonts/OpenSans-Regular.ttf", 16);
+    window.menuFont = TTF_OpenFont("fonts/OpenSans-Regular.ttf", 13);
+    if (!window.font || !window.menuFont) {
+        fprintf(stderr, "Font loading failed: #\n", TTF_GetError());
+        goto cleanup;
+    }
+
+    window.lineHeight = TTF_FontHeight(window.font);
+
+    // Create text buffer
+    TextBuffer* buffer = createBuffer(INITIAL_BUFFER_SIZE);
+    if (!buffer) {
+        fprintf(stderr, "Buffer creation failed\n");
+        goto cleanup;
+    }
+
+    // Load file if specified
+    if (argc > 1) {
+        FILE* file = fopen(argv[1], "r");
+        if (file) {
+            char chunk[1024];
+            size_t bytesRead;
+            while ((bytesRead = fread(chunk, 1, sizeof(chunk), file)) > 0) {
+                if (!expandBufferIfNeeded(buffer, bytesRead)) {
+                    fprintf(stderr, "Buffer expansion failed\n");
+                    fclose(file);
+                    goto cleanup;
+                }
+                memcpy(buffer->data + buffer->size, chunk, bytesRead);
+                buffer->size += bytesRead;
+            }
+            fclose(file);
+        }
+    }
+
+    // Initialize selection
+    Selection selection = {0, 0, false};
+
+    // Main event loop
+    SDL_StartTextInput();
+    bool running = true;
+    Uint32 lastCursorBlink = SDL_GetTicks();
+    bool cursorVisible = true;
+
+    while (running) {
+        SDL_Event event;
+        while (SDL_PollEvent(&event)) {
+            switch (event.type) {
+                case SDL_QUIT:
+                    if (argc > 1) saveToFile(argv[1], buffer);
+                    running = false;
+                    break;
+
+                case SDL_WINDOWEVENT:
+                    if (event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
+                        window.width = event.window.data1;
+                        window.height = event.window.data2;
+                    }
+                    break;
+
+                case SDL_MOUSEWHEEL:
+                    if (event.wheel.y != 0) {
+                        int newOffset = window.scrollOffset + (event.wheel.y * window.lineHeight);
+                        if (newOffset <= RENDER_Y_OFFSET && newOffset > -(buffer->size / 80 * window.lineHeight)) {
+                            window.scrollOffset = newOffset;
+                            window.scrollCount -= event.wheel.y;
+                        }
+                    }
+                    break;
+
+                case SDL_KEYDOWN:
+                case SDL_TEXTINPUT:
+                    handleKeyPress(&event, buffer, &selection, &window);
+                    break;
+            }
+        }
+
+        // Update cursor blink
+        if (SDL_GetTicks() - lastCursorBlink >= 500) {
+            cursorVisible = !cursorVisible;
+            lastCursorBlink = SDL_GetTicks();
+        }
+
+        // Render
+        SDL_SetRenderDrawColor(window.renderer, 255, 255, 255, 255);
+        SDL_RenderClear(window.renderer);
+        
+        if (cursorVisible) {
+            buffer->data[buffer->cursor] = '|';
+        } else {
+            buffer->data[buffer->cursor] = ' ';
+        }
+
+        renderText(&window, buffer, &selection);
+        SDL_RenderPresent(window.renderer);
+    }
+
+cleanup:
+    if (buffer) destroyBuffer(buffer);
+    if (window.font) TTF_CloseFont(window.font);
+    if (window.menuFont) TTF_CloseFont(window.menuFont);
+    if (window.renderer) SDL_DestroyRenderer(window.renderer);
+    if (window.window) SDL_DestroyWindow(window.window);
+    TTF_Quit();
+    SDL_Quit();
+    return 0;
+}
