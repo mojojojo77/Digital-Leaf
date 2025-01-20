@@ -2,6 +2,7 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
 #include <SDL2/SDL_syswm.h>
+#include <SDL2/SDL_image.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
@@ -90,7 +91,7 @@ const int MENU_HEIGHT = 20;
 const int MENU_ITEM_WIDTH = 40;
 
 // Colour of the highlight when text is selected
-SDL_Color highlightColor = {173, 200, 255, 255};
+SDL_Color highlightColor = {33, 150, 243, 0.35*255};
 
 enum MenuItem {
     FILE_QUIT,
@@ -125,13 +126,13 @@ void drawcursor(){
 
 void drawMenuBar() {
 	// Set the color for the menu bar (dark gray)	
-	SDL_SetRenderDrawColor(renderer, 150, 150, 150, 255);
+	SDL_SetRenderDrawColor(renderer, 27, 40, 48, 255);
 	SDL_GetWindowSize(window, &netWidth, &netHeight);
 	SDL_Rect menuBar = {0, 0, netWidth, MENU_HEIGHT};
 	SDL_RenderFillRect(renderer, &menuBar);
 
 	// Draw the "File" menu item
-	SDL_SetRenderDrawColor(renderer, 200, 200, 200, 255);  // White color
+	SDL_SetRenderDrawColor(renderer, 3, 20, 31, 255);  // White color
 	SDL_Rect fileItem = {0, 0, MENU_ITEM_WIDTH, MENU_HEIGHT};
 	SDL_RenderFillRect(renderer, &fileItem);
 	
@@ -145,7 +146,7 @@ void drawMenuBar() {
 
 
 	// Set text color (black)
-	SDL_Color textColor = {0, 0, 0, 255};
+	SDL_Color textColor = {255, 255, 255, 255};
 
 	font_menu = TTF_OpenFont("fonts/OpenSans-Regular.ttf", 13);
 	
@@ -165,7 +166,7 @@ void drawMenuBar() {
 
 	// Calculate the position to center the text inside the menu item
 	SDL_Rect textRect = {
-		fileItem.x + (fileItem.w - textWidth) / 2,  // Center horizontally
+		fileItem.x + 5,  // Center horizontally
 		fileItem.y + (fileItem.h - textHeight) / 2, // Center vertically
 		textWidth,
 		textHeight
@@ -249,6 +250,17 @@ int main(int argc, char* argv[]) {
         SDL_Quit();
         return 1;
     }
+	SDL_Surface *icon = IMG_Load("icon.png");
+
+	if (!icon) {
+			printf("Could not load icon! SDL_Error: %s\n", SDL_GetError());
+		} else {
+			// Set the window icon
+			SDL_SetWindowIcon(window, icon);
+			SDL_FreeSurface(icon);
+		}
+
+	SDL_SetWindowOpacity(window, 1); 
 
 	renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED| SDL_RENDERER_PRESENTVSYNC);
     if (!renderer) {
@@ -259,7 +271,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    font = TTF_OpenFont("fonts/OpenSans-Regular.ttf", 12);
+    font = TTF_OpenFont("fonts/MonaspaceKryptonFrozen-Regular.ttf", 16);
     if (!font) {
         printf("Failed to load font! TTF_Error: %s\n", TTF_GetError());
         SDL_DestroyRenderer(renderer);
@@ -269,7 +281,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    SDL_Color textColor = {0, 0, 0, 255}; // Black color
+    SDL_Color textColor = {255, 255, 255, 255}; // Black color
     SDL_StartTextInput();
 
 	Uint32 cursorBlinkTime = SDL_GetTicks(); // Cursor Blink time 
@@ -335,7 +347,7 @@ int main(int argc, char* argv[]) {
 					}
 
 					TTF_CloseFont(font);
-					font = TTF_OpenFont("fonts/OpenSans-Regular.ttf", new_point_size);
+					font = TTF_OpenFont("fonts/MonaspaceKryptonFrozen-Regular.ttf", new_point_size);
 					if (!font) {
 						printf("Failed to load font: %s\n", TTF_GetError());
 					} else {
@@ -757,7 +769,7 @@ int main(int argc, char* argv[]) {
 
 		
 		// Set color to red for the rectangle (this will be the color key)
-		SDL_SetRenderDrawColor(renderer, 255, 255, 255,0);
+		SDL_SetRenderDrawColor(renderer, 0, 0, 0,0);
 		SDL_RenderClear(renderer);
 		
 		// Update screen
