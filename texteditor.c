@@ -104,6 +104,9 @@ SDL_Renderer* renderer = NULL;
 TTF_Font* font = NULL;
 TTF_Font* font_menu = NULL;
 
+int current_font_size = 16;  // Starting font size
+
+
 
 void drawcursor(){
 	SDL_SetRenderDrawColor(renderer, 0, 150, 150, 100);
@@ -256,7 +259,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    font = TTF_OpenFont("fonts/OpenSans-Regular.ttf", 16);
+    font = TTF_OpenFont("fonts/OpenSans-Regular.ttf", 12);
     if (!font) {
         printf("Failed to load font! TTF_Error: %s\n", TTF_GetError());
         SDL_DestroyRenderer(renderer);
@@ -291,6 +294,8 @@ int main(int argc, char* argv[]) {
         
         // Handle events
         while (SDL_PollEvent(&e)) {
+			SDL_Keymod mod = SDL_GetModState();
+
             if (e.type == SDL_QUIT){
 				if(argc == 2){
 					printf("\n %d",bufferIndex);
@@ -318,25 +323,45 @@ int main(int argc, char* argv[]) {
 						// You can now use the new width and height for rendering or layout adjustments
 						SDL_Log("Window resized to %d x %d", netWidth, netHeight);
 					}
-			} else if (e.type == SDL_MOUSEWHEEL){
-				if((e.wheel.y > 0 || currentTextBlockHeight + render_y_off > netHeight) && (render_y_off < 25 || e.wheel.y < 0)){
-					SDL_Event event;
-					if(e.wheel.y == 1){
-						event.type = SDL_KEYDOWN;
-						event.key.keysym.sym = SDLK_DOWN;
-						SDL_PushEvent(&event);
+			} 
+			
+			else if (e.type == SDL_MOUSEWHEEL){
+
+				if(mod & KMOD_CTRL){
+					// Then in your wheel event handler:
+					int new_point_size = current_font_size + e.wheel.y;
+					if (new_point_size < 1) {
+						new_point_size = 1;
 					}
-					else if(e.wheel.y == -1){
-						event.type = SDL_KEYDOWN;
-						event.key.keysym.sym = SDLK_UP;
-						SDL_PushEvent(&event);
+
+					TTF_CloseFont(font);
+					font = TTF_OpenFont("fonts/OpenSans-Regular.ttf", new_point_size);
+					if (!font) {
+						printf("Failed to load font: %s\n", TTF_GetError());
+					} else {
+						current_font_size = new_point_size;  // Only update if font loaded successfully
 					}
-					
-					scroll_count += e.wheel.y;
-					render_y_off += (e.wheel.y*TTF_FontHeight(font));
 				}
-				if(render_y_off > 25) render_y_off = 25;
-				
+			
+				else{				
+					if((e.wheel.y > 0 || currentTextBlockHeight + render_y_off > netHeight) && (render_y_off < 25 || e.wheel.y < 0)){
+						SDL_Event event;
+						if(e.wheel.y == 1){
+							event.type = SDL_KEYDOWN;
+							event.key.keysym.sym = SDLK_DOWN;
+							SDL_PushEvent(&event);
+						}
+						else if(e.wheel.y == -1){
+							event.type = SDL_KEYDOWN;
+							event.key.keysym.sym = SDLK_UP;
+							SDL_PushEvent(&event);
+						}
+						
+						scroll_count += e.wheel.y;
+						render_y_off += (e.wheel.y*TTF_FontHeight(font));
+					}
+					if(render_y_off > 25) render_y_off = 25;
+				}
 //				printf("%d \n", line_number);
 				
 			} else if (e.type == SDL_KEYDOWN) {
@@ -530,69 +555,70 @@ int main(int argc, char* argv[]) {
 						}
 					}
 //					printf("%d\n",cursor);
-				} else if ((e.key.keysym.mod & KMOD_CTRL) && e.key.keysym.sym == SDLK_v) {
-					char* copied_text = SDL_GetClipboardText();
-					char* cleaned_text = malloc(strlen(copied_text) + 1);
-					size_t clean_index = 0;
-
-		
-					for (size_t i = 0; i < strlen(copied_text); i++) {
-						if (copied_text[i] != '\r') {
-							cleaned_text[clean_index++] = copied_text[i];
-						}
-					}
-					
-					cleaned_text[clean_index] = '\0';  // Null terminate the cleaned string
-
-					if (cleaned_text) {
-//						printf(cleaned_text);
-						size_t paste_len = strlen(cleaned_text);
-						size_t buffer_len = strlen(textBuffer);
-
-						// Create a cleaned version of the text
-						
-						// Clean up the text - remove \r characters
-						while((bufferIndex + paste_len) > buffer_size){
-							buffer_size = buffer_size * GROWTH_FACTOR;
-							textBuffer = (char*)realloc(textBuffer, buffer_size);
-//							tempBuffer = (char*)realloc(tempBuffer, buffer_size);
-
-							if (textBuffer == NULL || tempBuffer == NULL) {
-								printf("realloc failed");
-								free(textBuffer);
-								free(tempBuffer);
-								fclose(file);	
-								exit(1);
-							}
-							printf("Buffer Updated! Buffer size: %d",buffer_size);					
-
-						}
-						
-						if ((bufferIndex + paste_len) < buffer_size) {
-							// Make space for the new text by moving existing text
-							memmove(&textBuffer[cursor + paste_len], &textBuffer[cursor], (buffer_len - cursor + 1) * sizeof(char));
-
-							// Insert the copied text at the cursor position
-							memmove(&textBuffer[cursor], cleaned_text, paste_len * sizeof(char));
-
-							// Update buffer index and cursor position
-							bufferIndex += paste_len;
-							cursor += paste_len;
-						}
-						// Free the clipboard text
-						SDL_free(copied_text);
-						free(cleaned_text);
-					}
-					
-				} else if ((e.key.keysym.mod & KMOD_CTRL) && e.key.keysym.sym == SDLK_c){
-					
-					if(highlight_flag == 1){
-						SDL_SetClipboardText(string_slice(textBuffer,highlight_start,highlight_end));
-					}
-					
 				} 
-				
-                SDL_Keymod mod = SDL_GetModState();
+								
+				if(mod & KMOD_CTRL){
+					if(e.key.keysym.sym == SDLK_c){
+						if(highlight_flag == 1){
+							SDL_SetClipboardText(string_slice(textBuffer,highlight_start,highlight_end));
+						}
+					}
+					
+					if(e.key.keysym.sym == SDLK_v){
+						char* copied_text = SDL_GetClipboardText();
+						char* cleaned_text = malloc(strlen(copied_text) + 1);
+						size_t clean_index = 0;
+
+			
+						for (size_t i = 0; i < strlen(copied_text); i++) {
+							if (copied_text[i] != '\r') {
+								cleaned_text[clean_index++] = copied_text[i];
+							}
+						}
+						
+						cleaned_text[clean_index] = '\0';  // Null terminate the cleaned string
+
+						if (cleaned_text) {
+	//						printf(cleaned_text);
+							size_t paste_len = strlen(cleaned_text);
+							size_t buffer_len = strlen(textBuffer);
+
+							// Create a cleaned version of the text
+							
+							// Clean up the text - remove \r characters
+							while((bufferIndex + paste_len) > buffer_size){
+								buffer_size = buffer_size * GROWTH_FACTOR;
+								textBuffer = (char*)realloc(textBuffer, buffer_size);
+	//							tempBuffer = (char*)realloc(tempBuffer, buffer_size);
+
+								if (textBuffer == NULL || tempBuffer == NULL) {
+									printf("realloc failed");
+									free(textBuffer);
+									free(tempBuffer);
+									fclose(file);	
+									exit(1);
+								}
+								printf("Buffer Updated! Buffer size: %d",buffer_size);					
+
+							}
+							
+							if ((bufferIndex + paste_len) < buffer_size) {
+								// Make space for the new text by moving existing text
+								memmove(&textBuffer[cursor + paste_len], &textBuffer[cursor], (buffer_len - cursor + 1) * sizeof(char));
+
+								// Insert the copied text at the cursor position
+								memmove(&textBuffer[cursor], cleaned_text, paste_len * sizeof(char));
+
+								// Update buffer index and cursor position
+								bufferIndex += paste_len;
+								cursor += paste_len;
+							}
+							// Free the clipboard text
+							SDL_free(copied_text);
+							free(cleaned_text);
+						}
+					}
+				}
 
 				if (mod & KMOD_SHIFT) {
 //					printf("Shift is pressed.\n");
