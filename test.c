@@ -249,8 +249,9 @@ void handle_input(SDL_Event *e, char **textBuffer, int *bufferIndex, int *cursor
                 SDL_SetClipboardText(string_slice(*textBuffer, highlight_start, highlight_end));
             }
         } else if ((e->key.keysym.mod & KMOD_SHIFT) && (e->key.keysym.sym == SDLK_RIGHT)) {
-            highlight_flag = 1;
+            highlight_flag = 1; 
         } else if (mod & KMOD_SHIFT) {
+			printf("\nShift is pressed");
             temp_flag = 0;
             int highlight_anchor;
             if (!highlight_flag) {

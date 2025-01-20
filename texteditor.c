@@ -293,15 +293,19 @@ int main(int argc, char* argv[]) {
         while (SDL_PollEvent(&e)) {
             if (e.type == SDL_QUIT){
 				if(argc == 2){
+					printf("\n %d",bufferIndex);
+
 					ftruncate(fileno(file), 0);
 					rewind(file);
-					while(cursor < bufferIndex){
-						swap(&textBuffer[cursor], &textBuffer[cursor+1]);
-						cursor++;
+					
+					if (file) {
+						int result = fprintf(file, "%.*s", bufferIndex, textBuffer);
+						if (result < 0) {
+							printf("Error while saving file");
+						}
+						fclose(file);
 					}
-					textBuffer[cursor] = '\0';
-					fprintf(file, textBuffer);
-					fclose(file);
+					
 					free(textBuffer);
 					free(tempBuffer);
 				}
@@ -354,35 +358,27 @@ int main(int argc, char* argv[]) {
 				}
 				
 //				highlight_flag = 0;
-                if (e.key.keysym.sym == SDLK_BACKSPACE && cursor > 0) {
-					
-					if(highlight_flag == 0){
-						textBuffer[cursor-1] = textBuffer[cursor];
+                if (e.key.keysym.sym == SDLK_BACKSPACE && cursor >= 0) {					
+					if(highlight_flag == 0 && cursor > 0){
+						// Move text left to overwrite the character at cursor-1
+						memmove(&textBuffer[cursor - 1], &textBuffer[cursor], (bufferIndex - cursor + 1) * sizeof(char));
+						// Update cursor and buffer index
 						cursor--;
-						for(int i=1; i<bufferIndex; i++){
-							textBuffer[cursor+i] = textBuffer[cursor+i+1];
-						}
-						textBuffer[bufferIndex] = '\0';
 						bufferIndex--;
+						
 					}else{
-						if(cursor <= highlight_start){
-							for(int i=highlight_start; i<highlight_end; i++){
-								swap(&textBuffer[cursor], &textBuffer[cursor+1]);
-								cursor++;
-							}
+						// If cursor is at the start of the highlighted section, move it to the end of the highlight
+						if(cursor >= highlight_end){
+//							printf("Here");
+//							printf("%d, %d", highlight_start, highlight_end);
+							memmove(&textBuffer[highlight_start+1], &textBuffer[highlight_start], (highlight_end - highlight_start)*sizeof(char));
+							cursor = highlight_start;							
 						}
 						
-						for(int i=highlight_end; i>highlight_start; i--){
-//							if(cursor >= i){
-								textBuffer[cursor-1] = textBuffer[cursor];
-								cursor--;
-								for(int j=1; j<bufferIndex; j++){
-									textBuffer[cursor+j] = textBuffer[cursor+j +1];
-								}					
-								textBuffer[bufferIndex] = '\0';
-								bufferIndex--;
-//							}
-						}
+						memset(&textBuffer[bufferIndex+1], '\0', (bufferIndex - highlight_start));
+						memmove(&textBuffer[highlight_start], &textBuffer[highlight_end], (bufferIndex - highlight_start));
+						
+						bufferIndex = bufferIndex - (highlight_end - highlight_start);
 					}
 					
 					
@@ -545,6 +541,7 @@ int main(int argc, char* argv[]) {
 							cleaned_text[clean_index++] = copied_text[i];
 						}
 					}
+					
 					cleaned_text[clean_index] = '\0';  // Null terminate the cleaned string
 
 					if (cleaned_text) {
@@ -571,27 +568,20 @@ int main(int argc, char* argv[]) {
 
 						}
 						
-						if((bufferIndex + paste_len) < buffer_size){
-						
-						// Make sure we have enough space in the buffer
-//						if (buffer_len + paste_len < bufferIndex) {  // Assuming BUFFER_MAX_SIZE is defined
-							// First, make space for the new text by moving existing text
-							for (int i = buffer_len; i >= cursor; i--) {
-								textBuffer[i + paste_len] = textBuffer[i];
-							}
-							
-							// Now insert the copied text at cursor position
-							for (size_t i = 0; i < paste_len; i++) {
-								textBuffer[cursor + i] = cleaned_text[i];
-							}
-							
+						if ((bufferIndex + paste_len) < buffer_size) {
+							// Make space for the new text by moving existing text
+							memmove(&textBuffer[cursor + paste_len], &textBuffer[cursor], (buffer_len - cursor + 1) * sizeof(char));
+
+							// Insert the copied text at the cursor position
+							memmove(&textBuffer[cursor], cleaned_text, paste_len * sizeof(char));
+
 							// Update buffer index and cursor position
 							bufferIndex += paste_len;
 							cursor += paste_len;
-//						}
 						}
 						// Free the clipboard text
 						SDL_free(copied_text);
+						free(cleaned_text);
 					}
 					
 				} else if ((e.key.keysym.mod & KMOD_CTRL) && e.key.keysym.sym == SDLK_c){
@@ -600,9 +590,7 @@ int main(int argc, char* argv[]) {
 						SDL_SetClipboardText(string_slice(textBuffer,highlight_start,highlight_end));
 					}
 					
-				} else if ((e.key.keysym.mod & KMOD_SHIFT) && (e.key.keysym.sym == SDLK_RIGHT)){
-					highlight_flag = 1;
-				}
+				} 
 				
                 SDL_Keymod mod = SDL_GetModState();
 
