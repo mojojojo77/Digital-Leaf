@@ -208,7 +208,7 @@ int main(int argc, char* argv[]) {
 	int cursor = 0;
 	int bufferIndex = 0;
 	int tmpBufferIndex = 0;
-	FILE *file;
+	FILE *file = NULL;
 	
 	textBuffer[0] = '\0';
 		
@@ -325,13 +325,14 @@ int main(int argc, char* argv[]) {
 
             if (e.type == SDL_QUIT){
 				if(argc == 2){
-					printf("\n %d",bufferIndex);
+//					printf("\n %d",bufferIndex);
 
 					ftruncate(fileno(file), 0);
 					rewind(file);
 					
 					if (file) {
 						int result = fprintf(file, "%.*s", bufferIndex, textBuffer);
+						fflush(file);
 						if (result < 0) {
 							printf("Error while saving file");
 						}
@@ -478,6 +479,7 @@ int main(int argc, char* argv[]) {
 						
 						if (file) {
 							int result = fprintf(file, "%.*s", bufferIndex, textBuffer);
+							fflush(file);
 							if (result < 0) {
 								printf("Error while saving file");
 							}
@@ -612,6 +614,23 @@ int main(int argc, char* argv[]) {
 				} 
 								
 				if(mod & KMOD_CTRL){
+					if(e.key.keysym.sym == SDLK_s){	
+						if (file) {
+							printf("Here");
+							ftruncate(fileno(file), 0);
+							rewind(file);
+							int result = fprintf(file, "%.*s", bufferIndex, textBuffer);
+							fflush(file);
+							if (result < 0) {
+								printf("Error while saving file");
+							}
+							else{
+								printf("File saved");
+							}
+						}else{
+							printf("No file opened");
+						}						
+					}
 					if(e.key.keysym.sym == SDLK_c){
 						if(highlight_flag == 1){
 							SDL_SetClipboardText(string_slice(textBuffer,highlight_start,highlight_end));
