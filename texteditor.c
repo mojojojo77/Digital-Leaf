@@ -16,6 +16,18 @@
 
 
 // Helper Functions
+// Check if the pressed key is alphanumeric or a special character
+int is_alnum_or_special(SDL_Keycode key) {
+    // Check if the key is alphanumeric
+    if (isalnum(key)) {
+        return 1;
+    }
+    // Check if the key is a printable special character
+    if (ispunct(key)) {
+        return 1;
+    }
+    return 0;
+}
 
 
 // Easy Swap Function 
@@ -75,6 +87,7 @@ int highlight_end;
 
 // Temporary flag for the shift operation
 int temp_flag;
+int t_flag = 0;
 
 // Y offset of the rendered textbox on the screen
 int render_y_off = 25;
@@ -380,7 +393,6 @@ int main(int argc, char* argv[]) {
 				
 			} else if (e.type == SDL_KEYDOWN) {
 //				printf("%c" ,textBuffer[cursor-1]);
-
 				
 				if(bufferIndex + 10 > buffer_size){
 					buffer_size = buffer_size * GROWTH_FACTOR;
@@ -398,7 +410,8 @@ int main(int argc, char* argv[]) {
 				}
 				
 //				highlight_flag = 0;
-                if (e.key.keysym.sym == SDLK_BACKSPACE && cursor >= 0) {					
+                if ((e.key.keysym.sym == SDLK_BACKSPACE && cursor >= 0) || (is_alnum_or_special(e.key.keysym.sym) && highlight_flag == 1 && temp_flag == 1)) {
+//					printf("HEREEEEEEEEEEEEEEEEEEEEEEEE");					
 					if(highlight_flag == 0 && cursor > 0){
 						// Move text left to overwrite the character at cursor-1
 						memmove(&textBuffer[cursor - 1], &textBuffer[cursor], (bufferIndex - cursor + 1) * sizeof(char));
@@ -428,7 +441,6 @@ int main(int argc, char* argv[]) {
 						bufferIndex = bufferIndex - (highlight_end - highlight_start);
 						
 //						textBuffer = (char*) realloc(textBuffer, bufferIndex*GROWTH_FACTOR*sizeof(char));
-						
 					}
 					
 					
@@ -477,11 +489,24 @@ int main(int argc, char* argv[]) {
 					}
 					quit = 1;
                 } else if (e.key.keysym.sym == SDLK_LEFT && cursor > 0) {
-                    swap(&textBuffer[cursor - 1], &textBuffer[cursor]);
-                    --cursor;
+					if(highlight_flag == 1 && (mod & (KMOD_SHIFT | KMOD_CTRL | KMOD_ALT | KMOD_GUI)) == 0){
+//							printf("%d, %d", highlight_start, highlight_end);
+						memmove(&textBuffer[highlight_start+1], &textBuffer[highlight_start], (highlight_end - highlight_start)*sizeof(char));
+						cursor = highlight_start;							
+					}						
+					else{
+						swap(&textBuffer[cursor - 1], &textBuffer[cursor]);
+						--cursor;
+					}
                 } else if (e.key.keysym.sym == SDLK_RIGHT && cursor < bufferIndex) {
-                    swap(&textBuffer[cursor + 1], &textBuffer[cursor]);
-                    ++cursor;
+					if(highlight_flag == 1 && (mod & (KMOD_SHIFT | KMOD_CTRL | KMOD_ALT | KMOD_GUI)) == 0){
+						memmove(&textBuffer[cursor], &textBuffer[highlight_start], (highlight_end - highlight_start)*sizeof(char));
+						cursor = highlight_end-1;													
+					}
+					else{
+						swap(&textBuffer[cursor + 1], &textBuffer[cursor]);
+						++cursor;
+					}
                 } else if (e.key.keysym.sym == SDLK_UP) {
 					
 /***					if(cursor_highlight_start <= 30){
@@ -747,24 +772,39 @@ int main(int argc, char* argv[]) {
                 else if (mod & KMOD_ALT);   //printf("Alt is pressed.\n");
                 else if (mod & KMOD_GUI);  //printf("GUI (Windows/Command) is pressed.\n");
 				else{ 
-					printf("Key Pressed is not mod");
 
-					if(highlight_flag == 1){
+/***					
+					if (is_alnum_or_special(e.key.keysym.sym) & !(mod & KMOD_SHIFT)) {
+						printf("Here");
+						if (highlight_flag) {
+							// Simulate backspace to delete highlighted text
+							simulate_backspace(&e);
+							// Reset highlight flag after deletion
+							highlight_flag = 0;
+						}
+						// Process the alphanumeric or special character key press
+						//printf("Key pressed: %c\n", key);
+						// Add your text insertion logic here
+					}
+
+
+						if(highlight_flag == 1){
+
 						SDL_Keycode key = e.key.keysym.sym;
 						
-						if ((isalnum(key) || ispunct(key) ) & highlight_flag == 1) {                				
-							printf("Here");
+						if (isalnum(key) || ispunct(key)) {   
+							t_flag = 1;
+							printf("Key Pressed is not mod");
+						
 							SDL_Event simulatedEvent;
 							simulatedEvent.type = SDL_KEYDOWN; // Key down event
 							simulatedEvent.key.keysym.sym = SDLK_BACKSPACE; // Backspace key
-							simulatedEvent.key.keysym.mod = KMOD_NONE; // No modifiers (e.g., Shift or Ctrl)
-							simulatedEvent.key.repeat = 0; // No repeated keypress
 
-							// Push the simulated event into the SDL event queue
+							// Push the simulated event in.to the SDL event queue
 							SDL_PushEvent(&simulatedEvent);
 						}
-					}
-					highlight_flag = 0;
+					}	
+***/					highlight_flag = 0;
 				}
 
             } else if (e.type == SDL_TEXTINPUT) {				
