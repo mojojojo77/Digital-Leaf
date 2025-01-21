@@ -331,6 +331,9 @@ int main(int argc, char* argv[]) {
 					rewind(file);
 					
 					if (file) {
+						memmove(&textBuffer[cursor],&textBuffer[cursor+1], bufferIndex - cursor);
+						cursor = bufferIndex;
+						
 						int result = fprintf(file, "%.*s", bufferIndex, textBuffer);
 						fflush(file);
 						if (result < 0) {
@@ -411,7 +414,7 @@ int main(int argc, char* argv[]) {
 				}
 				
 //				highlight_flag = 0;
-                if ((e.key.keysym.sym == SDLK_BACKSPACE && cursor >= 0) || (is_alnum_or_special(e.key.keysym.sym) && highlight_flag == 1 && temp_flag == 1)) {
+                if (((e.key.keysym.sym == SDLK_BACKSPACE && cursor >= 0) || (is_alnum_or_special(e.key.keysym.sym) && highlight_flag == 1 && temp_flag == 1) && (mod & (KMOD_SHIFT | KMOD_CTRL | KMOD_ALT | KMOD_GUI)) == 0)) {
 //					printf("HEREEEEEEEEEEEEEEEEEEEEEEEE");					
 					if(highlight_flag == 0 && cursor > 0){
 						// Move text left to overwrite the character at cursor-1
@@ -444,6 +447,7 @@ int main(int argc, char* argv[]) {
 //						textBuffer = (char*) realloc(textBuffer, bufferIndex*GROWTH_FACTOR*sizeof(char));
 					}
 					
+					temp_flag = 0;
 					
 					
                 } else if (e.key.keysym.sym == SDLK_RETURN) {
@@ -478,6 +482,9 @@ int main(int argc, char* argv[]) {
 						rewind(file);
 						
 						if (file) {
+							memmove(&textBuffer[cursor],&textBuffer[cursor+1], bufferIndex - cursor);
+							cursor = bufferIndex;
+
 							int result = fprintf(file, "%.*s", bufferIndex, textBuffer);
 							fflush(file);
 							if (result < 0) {
@@ -491,8 +498,8 @@ int main(int argc, char* argv[]) {
 					}
 					quit = 1;
                 } else if (e.key.keysym.sym == SDLK_LEFT && cursor > 0) {
-					if(highlight_flag == 1 && (mod & (KMOD_SHIFT | KMOD_CTRL | KMOD_ALT | KMOD_GUI)) == 0){
-//							printf("%d, %d", highlight_start, highlight_end);
+					if(highlight_flag == 1 && (mod & (KMOD_SHIFT | KMOD_CTRL | KMOD_ALT | KMOD_GUI)) == 0 && cursor >= highlight_end){
+						printf("%d, %d", highlight_start, highlight_end);
 						memmove(&textBuffer[highlight_start+1], &textBuffer[highlight_start], (highlight_end - highlight_start)*sizeof(char));
 						cursor = highlight_start;							
 					}						
@@ -501,7 +508,7 @@ int main(int argc, char* argv[]) {
 						--cursor;
 					}
                 } else if (e.key.keysym.sym == SDLK_RIGHT && cursor < bufferIndex) {
-					if(highlight_flag == 1 && (mod & (KMOD_SHIFT | KMOD_CTRL | KMOD_ALT | KMOD_GUI)) == 0){
+					if(highlight_flag == 1 && (mod & (KMOD_SHIFT | KMOD_CTRL | KMOD_ALT | KMOD_GUI)) == 0 && cursor < highlight_start){
 						memmove(&textBuffer[cursor], &textBuffer[highlight_start], (highlight_end - highlight_start)*sizeof(char));
 						cursor = highlight_end-1;													
 					}
@@ -614,8 +621,14 @@ int main(int argc, char* argv[]) {
 				} 
 								
 				if(mod & KMOD_CTRL){
+					
+					
+					
 					if(e.key.keysym.sym == SDLK_s){	
 						if (file) {
+							memmove(&textBuffer[cursor],&textBuffer[cursor+1], bufferIndex - cursor);
+							cursor = bufferIndex;
+
 							printf("Here");
 							ftruncate(fileno(file), 0);
 							rewind(file);
@@ -778,14 +791,15 @@ int main(int argc, char* argv[]) {
 				}                
 				else if (mod & KMOD_CTRL){
 //					printf("Control is pressed.\n");
-					if(e.key.keysym.sym == SDLK_a){
+					if(e.key.keysym.sym == SDLK_a && highlight_flag == 0){
 						highlight_flag = 1;
 						highlight_start = 0;
 						highlight_end = bufferIndex;
-						while(cursor < bufferIndex){
-							swap(&textBuffer[cursor], &textBuffer[cursor+1]);
-							cursor++;
-						}
+						
+						temp_flag = 1;
+						
+						memmove(&textBuffer[cursor],&textBuffer[cursor+1], bufferIndex - cursor);
+						cursor = bufferIndex;
 					}					
 				}
                 else if (mod & KMOD_ALT);   //printf("Alt is pressed.\n");
