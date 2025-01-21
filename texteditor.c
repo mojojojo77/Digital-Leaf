@@ -7,6 +7,8 @@
 #include <string.h>
 #include <stdbool.h>
 #include <unistd.h>
+#include <ctype.h>
+#include <time.h>
 
 
 #define INITIAL_SIZE 256
@@ -378,6 +380,7 @@ int main(int argc, char* argv[]) {
 				
 			} else if (e.type == SDL_KEYDOWN) {
 //				printf("%c" ,textBuffer[cursor-1]);
+
 				
 				if(bufferIndex + 10 > buffer_size){
 					buffer_size = buffer_size * GROWTH_FACTOR;
@@ -403,7 +406,7 @@ int main(int argc, char* argv[]) {
 						cursor--;
 						bufferIndex--;
 						
-					}else{
+					}else if(highlight_flag == 1){
 						// If cursor is at the start of the highlighted section, move it to the end of the highlight
 						if(cursor >= highlight_end){
 //							printf("Here");
@@ -412,20 +415,28 @@ int main(int argc, char* argv[]) {
 							cursor = highlight_start;							
 						}
 						
+						// Extra null characters created when the shifting operation has to be compensated by increasing the buffer_size 
+						if(bufferIndex + bufferIndex - highlight_start > buffer_size){
+							textBuffer = (char*) realloc(textBuffer, buffer_size*GROWTH_FACTOR*sizeof(char));
+							printf("Buffer size updated: %d", buffer_size);
+						}
+
+//						printf("%d, %d, %d", bufferIndex + bufferIndex - highlight_start, buffer_size, buffer_size*GROWTH_FACTOR);
+					
 						memset(&textBuffer[bufferIndex+1], '\0', (bufferIndex - highlight_start));
 						memmove(&textBuffer[highlight_start], &textBuffer[highlight_end], (bufferIndex - highlight_start));
-						
 						bufferIndex = bufferIndex - (highlight_end - highlight_start);
+						
+//						textBuffer = (char*) realloc(textBuffer, bufferIndex*GROWTH_FACTOR*sizeof(char));
+						
 					}
 					
 					
 					
                 } else if (e.key.keysym.sym == SDLK_RETURN) {
-					tmpBufferIndex = bufferIndex; // Remember to reuse this code 
-					while(cursor < tmpBufferIndex){
-						swap(&textBuffer[tmpBufferIndex+1], &textBuffer[tmpBufferIndex]);
-						tmpBufferIndex--;
-                    }
+					
+					memmove(&textBuffer[cursor+1],&textBuffer[cursor], bufferIndex - cursor);
+
                     textBuffer[cursor] = '\n'; // Insert a newline character on Return key
 					bufferIndex++;
                     cursor++;
@@ -446,19 +457,25 @@ int main(int argc, char* argv[]) {
 							render_y_off -= TTF_FontHeight(font);
 					}						
 ***/
-                } else if (e.key.keysym.sym == SDLK_ESCAPE) {
+                } else if (e.key.keysym.sym == SDLK_ESCAPE) { // Note : Move cursor to the end of the buffer and change it to null before saving the file 
 					if(argc == 2){
+						printf("\n %d",bufferIndex);
+
 						ftruncate(fileno(file), 0);
 						rewind(file);
-						while(cursor < bufferIndex){
-							swap(&textBuffer[cursor], &textBuffer[cursor+1]);
-							cursor++;
+						
+						if (file) {
+							int result = fprintf(file, "%.*s", bufferIndex, textBuffer);
+							if (result < 0) {
+								printf("Error while saving file");
+							}
+							fclose(file);
 						}
-						textBuffer[cursor] = '\0';
-						fprintf(file, textBuffer);
-						fclose(file);
+						
+						free(textBuffer);
+						free(tempBuffer);
 					}
-                    quit = 1; // Quit on Escape
+					quit = 1;
                 } else if (e.key.keysym.sym == SDLK_LEFT && cursor > 0) {
                     swap(&textBuffer[cursor - 1], &textBuffer[cursor]);
                     --cursor;
@@ -729,9 +746,28 @@ int main(int argc, char* argv[]) {
 				}
                 else if (mod & KMOD_ALT);   //printf("Alt is pressed.\n");
                 else if (mod & KMOD_GUI);  //printf("GUI (Windows/Command) is pressed.\n");
-				else highlight_flag = 0;
+				else{ 
+					printf("Key Pressed is not mod");
 
-            } else if (e.type == SDL_TEXTINPUT) {
+					if(highlight_flag == 1){
+						SDL_Keycode key = e.key.keysym.sym;
+						
+						if ((isalnum(key) || ispunct(key) ) & highlight_flag == 1) {                				
+							printf("Here");
+							SDL_Event simulatedEvent;
+							simulatedEvent.type = SDL_KEYDOWN; // Key down event
+							simulatedEvent.key.keysym.sym = SDLK_BACKSPACE; // Backspace key
+							simulatedEvent.key.keysym.mod = KMOD_NONE; // No modifiers (e.g., Shift or Ctrl)
+							simulatedEvent.key.repeat = 0; // No repeated keypress
+
+							// Push the simulated event into the SDL event queue
+							SDL_PushEvent(&simulatedEvent);
+						}
+					}
+					highlight_flag = 0;
+				}
+
+            } else if (e.type == SDL_TEXTINPUT) {				
                 if (bufferIndex < buffer_size - 1) {
 					tmpBufferIndex = bufferIndex; // Remember to reuse this code
 					while(cursor < tmpBufferIndex){
