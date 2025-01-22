@@ -9,13 +9,31 @@
 #include <unistd.h>
 #include <ctype.h>
 #include <time.h>
+#include <math.h>
 
 
 #define INITIAL_SIZE 256
 #define GROWTH_FACTOR 2
 
 
+
 // Helper Functions
+
+// SDL Clickable regions 
+// File
+
+SDL_Rect fileItem = {0,0,0,0}; 
+SDL_Rect themeItem = {0,0,0,0};
+
+
+// Is mouse over a certain region (SDL_Rect)
+bool isMouseOver(SDL_Rect rect, int mouseX, int mouseY) {
+	
+    return mouseX >= rect.x && mouseX <= rect.x + rect.w &&
+           mouseY >= rect.y && mouseY <= rect.y + rect.h;
+}
+
+
 // Check if the pressed key is alphanumeric or a special character
 int is_alnum_or_special(SDL_Keycode key) {
     // Check if the key is alphanumeric
@@ -76,6 +94,8 @@ char *strsep(char **stringp, const char *delim) {
 // Line number
 int line_number;
 int cursor_line;
+int current_cursor_line;
+int current_cursor_char;
 
 // Height of the cursors highlight to render from 
 int cursor_highlight_start;
@@ -84,6 +104,10 @@ int cursor_highlight_start;
 bool highlight_flag = 0;
 int highlight_start;
 int highlight_end;
+
+// File drop down flag 
+bool file_item_drop_down_flag = false;
+bool themes_item_drop_down_flag = false;
 
 // Temporary flag for the shift operation
 int temp_flag;
@@ -102,8 +126,8 @@ int netWidth;
 int netHeight;
 
 // Menu item dimensions
-const int MENU_HEIGHT = 20;
-const int MENU_ITEM_WIDTH = 40;
+const int FILE_ITEM_HEIGHT = 20;
+const int FILE_ITEM_WIDTH = 40;
 
 // Colour of the highlight when text is selected
 SDL_Color highlightColor = {33, 150, 243, 0.35*255};
@@ -143,12 +167,17 @@ void drawMenuBar() {
 	// Set the color for the menu bar (dark gray)	
 	SDL_SetRenderDrawColor(renderer, 27, 40, 48, 255);
 	SDL_GetWindowSize(window, &netWidth, &netHeight);
-	SDL_Rect menuBar = {0, 0, netWidth, MENU_HEIGHT};
+	SDL_Rect menuBar = {0, 0, netWidth, FILE_ITEM_HEIGHT};
 	SDL_RenderFillRect(renderer, &menuBar);
+	
 
 	// Draw the "File" menu item
 	SDL_SetRenderDrawColor(renderer, 3, 20, 31, 255);  // White color
-	SDL_Rect fileItem = {0, 0, MENU_ITEM_WIDTH, MENU_HEIGHT};
+	fileItem.x = 0;
+	fileItem.y = 0;
+	fileItem.w = FILE_ITEM_WIDTH;
+	fileItem.h = FILE_ITEM_HEIGHT;
+
 	SDL_RenderFillRect(renderer, &fileItem);
 	
 	// Draw a border around the "File" menu item (black border)
@@ -194,12 +223,192 @@ void drawMenuBar() {
 	SDL_DestroyTexture(textTexture);
 }
 
+void draw_file_dropdown(){
+	SDL_SetRenderDrawColor(renderer, 3, 20, 31, 255);  // Set dropdown background color
+	SDL_GetWindowSize(window, &netWidth, &netHeight);
+	SDL_Rect fileItem_DROP_DOWN = {0, FILE_ITEM_HEIGHT, 200, 142};  // Dropdown area
+	SDL_Rect textRect;
+	int height_one_above = fileItem_DROP_DOWN.y;
+
+	// Render the dropdown background
+	SDL_RenderFillRect(renderer, &fileItem_DROP_DOWN);
+
+	void each_drawer(char* name){
+		// Define text color and load font
+		SDL_Color textColor = {255, 255, 255, 255};
+		font_menu = TTF_OpenFont("fonts/OpenSans-Regular.ttf", 13);
+
+		// Render the text for "New"
+		SDL_Surface* textSurface = TTF_RenderText_Blended(font_menu, name, textColor);
+		if (!textSurface) {
+			SDL_Log("Unable to render text surface! TTF_Error: %s\n", TTF_GetError());
+		}
+
+		// Create a texture from the surface
+		SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
+		SDL_FreeSurface(textSurface);  // Free the surface as it's no longer needed
+
+		// Get the dimensions of the text texture
+		int textWidth = 0, textHeight = 0;
+		SDL_QueryTexture(textTexture, NULL, NULL, &textWidth, &textHeight);
+
+		// Calculate the position to center the text inside the menu item
+		textRect.x = fileItem_DROP_DOWN.x + 5;  // Horizontal padding
+		textRect.y = height_one_above + 5;  // Vertically center the text
+		textRect.w = textWidth;
+		textRect.h = textHeight;
+
+
+		// Render the horizontal line below the text
+		SDL_SetRenderDrawColor(renderer, 255, 255, 255, 50);  // Set line color (black)
+		SDL_RenderDrawLine(renderer,
+			fileItem_DROP_DOWN.x,                 // Left edge of the dropdown
+			textRect.y + textRect.h + 5,          // Just below the text
+			fileItem_DROP_DOWN.x + fileItem_DROP_DOWN.w,  // Right edge of the dropdown
+			textRect.y + textRect.h + 5           // Just below the text
+		);
+
+		height_one_above = textRect.y + textRect.h + 5;
+		// Render the text on the screen
+		SDL_RenderCopy(renderer, textTexture, NULL, &textRect);
+
+		// Destroy the text texture after rendering
+		SDL_DestroyTexture(textTexture);
+	}
+	
+	each_drawer("New");	
+	each_drawer("Open");
+	each_drawer("Save");
+	each_drawer("Save As");
+	each_drawer("Exit");
+}
+void drawThemesBar() {
+	// Set the color for the menu bar (dark gray)	
+	SDL_SetRenderDrawColor(renderer, 27, 40, 48, 255);
+	SDL_GetWindowSize(window, &netWidth, &netHeight);
+	SDL_Rect themeBar = {FILE_ITEM_WIDTH, 0, netWidth, FILE_ITEM_HEIGHT};
+	SDL_RenderFillRect(renderer, &themeBar);
+	
+
+	// Draw the "File" menu item
+	SDL_SetRenderDrawColor(renderer, 3, 20, 31, 255);  // White color
+	themeItem.x = FILE_ITEM_WIDTH + 1;
+	themeItem.y = 0;
+	themeItem.w = FILE_ITEM_WIDTH + 20;
+	themeItem.h = FILE_ITEM_HEIGHT;
+
+	SDL_RenderFillRect(renderer, &themeItem);
+	
+	// Draw a border around the "File" menu item (black border)
+//	SDL_SetRenderDrawColor(renderer, 100, 100, 100, 255);  // Black color for the border
+//	SDL_RenderDrawRect(renderer, &menuBar);  // Draw the border around the menu item
+	
+//	SDL_RenderDrawLine(renderer, menuBar.x, menuBar.y, menuBar.x, menuBar.y + menuBar.h);          // Left side
+//	SDL_RenderDrawLine(renderer, menuBar.x + menuBar.w, menuBar.y, menuBar.x + menuBar.w, menuBar.y + menuBar.h);  // Right side
+//	SDL_RenderDrawLine(renderer, menuBar.x, menuBar.y + menuBar.h, menuBar.x + menuBar.w, menuBar.y + menuBar.h);  // Bottom side
+
+
+	// Set text color (black)
+	SDL_Color textColor = {255, 255, 255, 255};
+
+	font_menu = TTF_OpenFont("fonts/OpenSans-Regular.ttf", 13);
+	
+	// Render the text for "File"
+	SDL_Surface* textSurface = TTF_RenderText_Blended(font_menu, "Theme", textColor);
+	if (!textSurface) {
+		SDL_Log("Unable to render text surface! TTF_Error: %s\n", TTF_GetError());
+	}
+
+	// Create a texture from the surface
+	SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
+	SDL_FreeSurface(textSurface);  // Free the surface as it's no longer needed
+
+	// Get the dimensions of the text texture
+	int textWidth = 0, textHeight = 0;
+	SDL_QueryTexture(textTexture, NULL, NULL, &textWidth, &textHeight);
+
+	// Calculate the position to center the text inside the menu item
+	SDL_Rect textRect = {
+		themeItem.x + 5,  // Center horizontally
+		themeItem.y + (themeItem.h - textHeight) / 2, // Center vertically
+		textWidth,
+		textHeight
+	};
+
+	// Render the text on the screen
+	SDL_RenderCopy(renderer, textTexture, NULL, &textRect);
+
+	// Destroy the text texture after rendering
+	SDL_DestroyTexture(textTexture);
+}
+
+void draw_themes_dropddown(){
+	SDL_SetRenderDrawColor(renderer, 3, 20, 31, 255);  // Set dropdown background color
+	SDL_GetWindowSize(window, &netWidth, &netHeight);
+	SDL_Rect themeItem_DROP_DOWN = {FILE_ITEM_WIDTH + 1, FILE_ITEM_HEIGHT, 200, 170};  // Dropdown area
+	SDL_Rect textRect;
+	int height_one_above = themeItem_DROP_DOWN.y;
+
+	// Render the dropdown background
+	SDL_RenderFillRect(renderer, &themeItem_DROP_DOWN);
+
+	void each_drawer(char* name){
+		// Define text color and load font
+		SDL_Color textColor = {255, 255, 255, 255};
+		font_menu = TTF_OpenFont("fonts/OpenSans-Regular.ttf", 13);
+
+		// Render the text for "New"
+		SDL_Surface* textSurface = TTF_RenderText_Blended(font_menu, name, textColor);
+		if (!textSurface) {
+			SDL_Log("Unable to render text surface! TTF_Error: %s\n", TTF_GetError());
+		}
+
+		// Create a texture from the surface
+		SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
+		SDL_FreeSurface(textSurface);  // Free the surface as it's no longer needed
+
+		// Get the dimensions of the text texture
+		int textWidth = 0, textHeight = 0;
+		SDL_QueryTexture(textTexture, NULL, NULL, &textWidth, &textHeight);
+
+		// Calculate the position to center the text inside the menu item
+		textRect.x = themeItem_DROP_DOWN.x + 5;  // Horizontal padding
+		textRect.y = height_one_above + 5;  // Vertically center the text
+		textRect.w = textWidth;
+		textRect.h = textHeight;
+
+
+		// Render the horizontal line below the text
+		SDL_SetRenderDrawColor(renderer, 255, 255, 255, 50);  // Set line color (black)
+		SDL_RenderDrawLine(renderer,
+			themeItem_DROP_DOWN.x,                 // Left edge of the dropdown
+			textRect.y + textRect.h + 5,          // Just below the text
+			themeItem_DROP_DOWN.x + themeItem_DROP_DOWN.w,  // Right edge of the dropdown
+			textRect.y + textRect.h + 5           // Just below the text
+		);
+
+		height_one_above = textRect.y + textRect.h + 5;
+		// Render the text on the screen
+		SDL_RenderCopy(renderer, textTexture, NULL, &textRect);
+
+		// Destroy the text texture after rendering
+		SDL_DestroyTexture(textTexture);
+	}
+	
+	each_drawer("Forest");
+	each_drawer("Mountain");
+	each_drawer("Bubblegum");
+	each_drawer("Wood");
+	each_drawer("Tiles");
+	each_drawer("Obsidian");
+	
+}
 
 int main(int argc, char* argv[]) {
 	size_t buffer_size = INITIAL_SIZE;
     char* textBuffer = (char*)malloc(buffer_size); // Buffer to store user input
 	char* tempBuffer = (char*)malloc(buffer_size);
-	
+
 	if(textBuffer == NULL){
 		perror("Initializing buffer failed!");
 	}
@@ -318,7 +527,7 @@ int main(int argc, char* argv[]) {
     while (!quit) {
 
         SDL_Event e;
-        
+
         // Handle events
         while (SDL_PollEvent(&e)) {
 			SDL_Keymod mod = SDL_GetModState();
@@ -354,8 +563,42 @@ int main(int argc, char* argv[]) {
 						// You can now use the new width and height for rendering or layout adjustments
 						SDL_Log("Window resized to %d x %d", netWidth, netHeight);
 					}
-			} 
-			
+			} else if (e.type == SDL_MOUSEBUTTONDOWN) {
+                int mouseX = e.button.x;
+                int mouseY = e.button.y;
+				
+				if(e.button.button == SDL_BUTTON_LEFT){
+                // Check if the click occurred within the clickable region
+					current_cursor_line = (mouseY - 25)/TTF_FontHeight(font);
+					current_cursor_char = floor(mouseX/9.5); // Change the approx text width value to a variable which can change as the font size changes
+//					printf("\n Current Cursor: %d , %d",current_cursor_line, current_cursor_char);
+					
+					int temp = 0;
+					int total_char_in_line = 0;
+					for(int i=0; i<bufferIndex; i++){
+						if(textBuffer[i] == '\n'){
+							temp++; 
+							printf("\n Current Cursor: %d , %d",current_cursor_line, temp);
+						}
+						if(temp == current_cursor_line){
+							for(int j = current_cursor_char; j != '\n'; j--){
+								if(textBuffer[i+j] == '\n' || i+j+1 > bufferIndex)
+									current_cursor_char = j;break;
+							}
+							memmove(&textBuffer[cursor], &textBuffer[cursor+1], bufferIndex - cursor + 1);
+							memmove(&textBuffer[i+(current_cursor_char)+1], &textBuffer[i +(current_cursor_char)], bufferIndex - i +(current_cursor_char));
+							cursor = i+(current_cursor_char);
+							break;
+						}
+					}
+					
+					if (isMouseOver(fileItem, mouseX, mouseY) && file_item_drop_down_flag == false) file_item_drop_down_flag = true;
+					else file_item_drop_down_flag = false;						
+					
+					if (isMouseOver(themeItem, mouseX, mouseY) && themes_item_drop_down_flag == false) themes_item_drop_down_flag = true;
+					else themes_item_drop_down_flag = false;						
+				}
+			}
 			else if (e.type == SDL_MOUSEWHEEL){
 
 				if(mod & KMOD_CTRL){
@@ -885,8 +1128,6 @@ int main(int argc, char* argv[]) {
 //		SDL_RenderPresent(renderer);
         
 
-
-
 		int temp_cursor = cursor;
 		int temp_cnt = 0;
 
@@ -1010,7 +1251,10 @@ int main(int argc, char* argv[]) {
 			totalCharsProcessed += lineLength + 1;
 		}
 		drawMenuBar();
-		
+		drawThemesBar();
+		if(file_item_drop_down_flag == true)draw_file_dropdown();
+		if(themes_item_drop_down_flag == true)draw_themes_dropddown(); 
+			
 		line_number = tokenCnt;
 //		printf("%d\n", line_number);
 //		printf("%d",tokenCnt); DEGUBGIN ATTEMPT TO IMPLEMENT A NEW LINE ON AN EMPTY TOKEN 
