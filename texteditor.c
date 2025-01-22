@@ -524,6 +524,7 @@ int main(int argc, char* argv[]) {
     keyEvent.key.repeat = 0;                    // Not a repeated key press
 ***/
 
+
     while (!quit) {
 
         SDL_Event e;
@@ -569,29 +570,62 @@ int main(int argc, char* argv[]) {
 				
 				if(e.button.button == SDL_BUTTON_LEFT){
                 // Check if the click occurred within the clickable region
-					current_cursor_line = (mouseY - 25)/TTF_FontHeight(font);
-					current_cursor_char = floor(mouseX/9.5); // Change the approx text width value to a variable which can change as the font size changes
-//					printf("\n Current Cursor: %d , %d",current_cursor_line, current_cursor_char);
-					
-					int temp = 0;
-					int total_char_in_line = 0;
-					for(int i=0; i<bufferIndex; i++){
-						if(textBuffer[i] == '\n'){
-							temp++; 
-							printf("\n Current Cursor: %d , %d",current_cursor_line, temp);
-						}
-						if(temp == current_cursor_line){
-							for(int j = current_cursor_char; j != '\n'; j--){
-								if(textBuffer[i+j] == '\n' || i+j+1 > bufferIndex)
-									current_cursor_char = j;break;
+					if(mouseY > 25){
+						current_cursor_line = (mouseY - 25)/TTF_FontHeight(font);
+						current_cursor_char = floor(mouseX/9.5); // Change the approx text width value to a variable which can change as the font size changes
+	//					printf("\n Current Cursor: %d , %d",current_cursor_line, current_cursor_char);
+						
+						int temp = 0;
+						int total_cursor_character = 0;
+						int flag = true;
+						
+						
+						for(int i=0; i<bufferIndex; i++){
+							if(textBuffer[i] == '\n'){
+								temp++; 
+							//	printf("\n Current Cursor: %d , %d",current_cursor_line, temp);
 							}
-							memmove(&textBuffer[cursor], &textBuffer[cursor+1], bufferIndex - cursor + 1);
-							memmove(&textBuffer[i+(current_cursor_char)+1], &textBuffer[i +(current_cursor_char)], bufferIndex - i +(current_cursor_char));
-							cursor = i+(current_cursor_char);
-							break;
+							if(temp == current_cursor_line){
+								for(int j = current_cursor_char; j != '\n'; j--){
+									if(textBuffer[i+j] == '\n' || i+j+1 > bufferIndex){
+										current_cursor_char = j;
+										total_cursor_character += current_cursor_char;
+										break;
+									}
+								}
+								memmove(&textBuffer[cursor], &textBuffer[cursor+1], bufferIndex - cursor + 1);
+								memmove(&textBuffer[i+(current_cursor_char)+1], &textBuffer[i +(current_cursor_char)], bufferIndex - i +(current_cursor_char));
+								cursor = i+(current_cursor_char);
+								break;
+							}
+						}
+						
+						cursor_line = 0;
+						
+						for(int i=cursor; i >= 0; i--){
+							if(textBuffer[i] == '\n')
+								cursor_line++;
+						}
+						
+						printf("\n %d, %d", current_cursor_line, cursor_line);
+
+						while(cursor_line > current_cursor_line){
+							printf("\n %d", cursor_line);
+							while(textBuffer[cursor+1] != '\n'){
+								swap(&textBuffer[cursor], &textBuffer[cursor-1]);
+								cursor--;
+							}
+							swap(&textBuffer[cursor], &textBuffer[cursor-1]);
+							cursor--;
+							cursor_line--;
+							if(cursor_line == current_cursor_line){
+								swap(&textBuffer[cursor], &textBuffer[cursor+1]);
+								cursor++;
+							} 
 						}
 					}
 					
+										
 					if (isMouseOver(fileItem, mouseX, mouseY) && file_item_drop_down_flag == false) file_item_drop_down_flag = true;
 					else file_item_drop_down_flag = false;						
 					
@@ -1107,12 +1141,7 @@ int main(int argc, char* argv[]) {
 		}else 
 			textBuffer[cursor] = ' ';
 		
-		cursor_line = 0;
-		
-		for(int i=cursor; i >= 0; i--){
-			if(textBuffer[i] == '\n')
-				cursor_line++;
-		}
+//		printf("\n %d", cursor_line);
 		
 //		printf("Cursor Line: %d \n",cursor_line);
 		
