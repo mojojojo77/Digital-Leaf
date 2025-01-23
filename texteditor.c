@@ -23,6 +23,12 @@
 
 SDL_Rect fileItem = {0,0,0,0}; 
 SDL_Rect themeItem = {0,0,0,0};
+SDL_Rect scrollbar = {0,0,0,0};
+
+// Scrollbar variables
+bool scrollbar_flag = false;
+int scroll_y_pos;
+
 
 // Mouse functionality variables	
 bool isDragging = false;
@@ -150,7 +156,17 @@ TTF_Font* font_menu = NULL;
 
 int current_font_size = 16;  // Starting font size
 
-
+void drawscroll(int scroll_y){
+	SDL_GetWindowSize(window, &netWidth, &netHeight);
+	SDL_SetRenderDrawColor(renderer, 0, 150, 150, 100);
+	
+	scrollbar.x = netWidth - 25; 
+	scrollbar.y = render_y_off + scroll_y;
+	scrollbar.w = 20; 
+	scrollbar.h = 40;
+	
+	SDL_RenderFillRect(renderer, &scrollbar);
+}
 
 void drawcursor(){
 	SDL_SetRenderDrawColor(renderer, 0, 150, 150, 100);
@@ -668,8 +684,15 @@ int main(int argc, char* argv[]) {
 					
 					if (isMouseOver(themeItem, mouseX, mouseY) && themes_item_drop_down_flag == false) themes_item_drop_down_flag = true;
 					else themes_item_drop_down_flag = false;	
+					
+					if (isMouseOver(scrollbar, mouseX, mouseY)) scrollbar_flag = true;
+					else scrollbar_flag = false;
 				}
 			} else if(e.type == SDL_MOUSEMOTION){
+				if(scrollbar_flag){ 					
+					scroll_y_pos = e.motion.y - 25;
+					if(scroll_y_pos < 0) scroll_y_pos = 0;
+				}
 				if(isDragging == true && (e.motion.x > 0 && e.motion.y > 25)){
 					mouseX = e.button.x;
 					mouseY = e.button.y;
@@ -778,7 +801,7 @@ int main(int argc, char* argv[]) {
 				}
 				
 				if(cursor < highlight_start){
-					highlight_start = cursor;
+					highlight_start = cursor+1;
 					highlight_end = highlight_anchor+1;
 				}else if(cursor > highlight_start){
 					highlight_start = highlight_anchor;
@@ -787,6 +810,7 @@ int main(int argc, char* argv[]) {
 				
 			} else if(e.type == SDL_MOUSEBUTTONUP){
 				isDragging = false; 
+				scrollbar_flag = false;
 			} else if (e.type == SDL_MOUSEWHEEL){
 
 				if(mod & KMOD_CTRL){
@@ -1445,6 +1469,8 @@ int main(int argc, char* argv[]) {
 		}
 		drawMenuBar();
 		drawThemesBar();
+		drawscroll(scroll_y_pos);
+		
 		if(file_item_drop_down_flag == true)draw_file_dropdown();
 		if(themes_item_drop_down_flag == true)draw_themes_dropddown(); 
 			
