@@ -24,7 +24,10 @@
 SDL_Rect fileItem = {0,0,0,0}; 
 SDL_Rect themeItem = {0,0,0,0};
 
-
+// Mouse functionality variables	
+bool isDragging = false;
+int mouseX; 
+int mouseY;
 // Is mouse over a certain region (SDL_Rect)
 bool isMouseOver(SDL_Rect rect, int mouseX, int mouseY) {
 	
@@ -103,6 +106,8 @@ int cursor_highlight_start;
 bool highlight_flag = 0;
 int highlight_start;
 int highlight_end;
+int highlight_anchor;
+
 
 // File drop down flag 
 bool file_item_drop_down_flag = false;
@@ -564,11 +569,19 @@ int main(int argc, char* argv[]) {
 						SDL_Log("Window resized to %d x %d", netWidth, netHeight);
 					}
 			} else if (e.type == SDL_MOUSEBUTTONDOWN) {
-                int mouseX = e.button.x;
-                int mouseY = e.button.y;
+				mouseX = e.button.x;
+				mouseY = e.button.y;
+				
+//				*x = mouseX; 
+//				*y = mouseY;
+				
+				if(highlight_flag)
+					highlight_flag = 0;
+				
+				isDragging = true;
 				
 				if(e.button.button == SDL_BUTTON_LEFT){
-                // Check if the click occurred within the clickable region
+				// Check if the click occurred within the clickable region
 					if(mouseY > 25){
 						current_cursor_line = (mouseY - 25)/TTF_FontHeight(font);
 						current_cursor_char = floor(mouseX/9.5); // Change the approx text width value to a variable which can change as the font size changes
@@ -654,10 +667,127 @@ int main(int argc, char* argv[]) {
 					else file_item_drop_down_flag = false;						
 					
 					if (isMouseOver(themeItem, mouseX, mouseY) && themes_item_drop_down_flag == false) themes_item_drop_down_flag = true;
-					else themes_item_drop_down_flag = false;						
+					else themes_item_drop_down_flag = false;	
 				}
-			}
-			else if (e.type == SDL_MOUSEWHEEL){
+			} else if(e.type == SDL_MOUSEMOTION){
+				if(isDragging == true && (e.motion.x > 0 && e.motion.y > 25)){
+					mouseX = e.button.x;
+					mouseY = e.button.y;
+					
+					if(e.button.button == SDL_BUTTON_LEFT){
+					// Check if the click occurred within the clickable region
+						if(mouseY > 25){
+							current_cursor_line = (mouseY - 25)/TTF_FontHeight(font);
+							current_cursor_char = floor(mouseX/9.5); // Change the approx text width value to a variable which can change as the font size changes
+		//					printf("\n Current Cursor: %d , %d",current_cursor_line, current_cursor_char);
+							
+							int last_line;
+							int temp = 0;
+							int total_lines = 0;
+							int total_cursor_character = 0;
+							int flag = true;
+							
+							for(int i=0; i<bufferIndex; i++){
+								if(textBuffer[i] == '\n'){
+									total_lines++;
+									last_line = i;
+								}
+							}
+							
+							printf("\n %d, %d", total_lines+1, current_cursor_line+1);
+							
+							if(current_cursor_line <= total_lines){
+								if(current_cursor_line == total_lines && bufferIndex - last_line < current_cursor_char){
+									goto jump_here_two;
+								}
+							// Shift the cursor to the mouse position when clicked 								
+								else{
+									for(int i=0; i<bufferIndex; i++){
+										if(textBuffer[i] == '\n'){
+											temp++; 
+										//	printf("\n Current Cursor: %d , %d",current_cursor_line, temp);
+										}
+
+										if(temp == current_cursor_line){
+											for(int j = current_cursor_char; j != '\n' && j < 0; j--){
+												if(textBuffer[i+j] == '\n'){
+													current_cursor_char = j;
+													total_cursor_character += current_cursor_char;
+													break;
+												}
+											}
+											memmove(&textBuffer[cursor], &textBuffer[cursor+1], bufferIndex - cursor + 1);
+											memmove(&textBuffer[i+(current_cursor_char)+1], &textBuffer[i +(current_cursor_char)], bufferIndex - i +(current_cursor_char));
+											cursor = i+(current_cursor_char);
+											break;
+										}
+									}
+									
+									// If mouse is clicked outside of text, recaliberate it to the end of the current line
+									cursor_line = 0;
+									
+									for(int i=cursor; i >= 0; i--){
+										if(textBuffer[i] == '\n')
+											cursor_line++;
+									}
+									
+									//printf("\n %d, %d", current_cursor_line, cursor_line);
+
+									while(cursor_line > current_cursor_line){
+										printf("\n %d", cursor_line);
+										while(textBuffer[cursor+1] != '\n'){
+											swap(&textBuffer[cursor], &textBuffer[cursor-1]);
+											cursor--;
+										}
+										swap(&textBuffer[cursor], &textBuffer[cursor-1]);
+										cursor--;
+										cursor_line--;
+										if(cursor_line == current_cursor_line){
+											swap(&textBuffer[cursor], &textBuffer[cursor+1]);
+											cursor++;
+										} 
+									}
+								}
+							}
+							else{
+								jump_here_two:
+									memmove(&textBuffer[cursor], &textBuffer[cursor+1], bufferIndex - cursor + 1);
+									cursor = bufferIndex;
+							}
+						}
+						
+											
+						if (isMouseOver(fileItem, mouseX, mouseY) && file_item_drop_down_flag == false) file_item_drop_down_flag = true;
+						else file_item_drop_down_flag = false;						
+						
+						if (isMouseOver(themeItem, mouseX, mouseY) && themes_item_drop_down_flag == false) themes_item_drop_down_flag = true;
+						else themes_item_drop_down_flag = false;	
+					}					
+				}
+				
+				temp_flag = 0;
+				
+				// Store current cursor position before any movement
+				
+				if (!highlight_flag) {
+					// First time initiating highlight
+					highlight_flag = 1;
+					highlight_anchor = cursor; // Store the initial position where highlighting began
+					highlight_start = cursor;
+					highlight_end = cursor;
+				}
+				
+				if(cursor < highlight_start){
+					highlight_start = cursor;
+					highlight_end = highlight_anchor+1;
+				}else if(cursor > highlight_start){
+					highlight_start = highlight_anchor;
+					highlight_end = cursor;
+				}
+				
+			} else if(e.type == SDL_MOUSEBUTTONUP){
+				isDragging = false; 
+			} else if (e.type == SDL_MOUSEWHEEL){
 
 				if(mod & KMOD_CTRL){
 					// Then in your wheel event handler:
@@ -1013,7 +1143,7 @@ int main(int argc, char* argv[]) {
 					temp_flag = 0;
 					
 					// Store current cursor position before any movement
-					int highlight_anchor;
+					//highlight_anchor;
 					
 					if (!highlight_flag) {
 						// First time initiating highlight
@@ -1231,6 +1361,16 @@ int main(int argc, char* argv[]) {
 		int tokenCnt = 0;
 		int highlight_text_index = 0;
 		int totalCharsProcessed = 0;
+		
+		// Maybe figure out an efficient way to keep track of the cursor line wihtout using the for loop everywhere? 
+		// If have to use, locate a position for for loop where it won't have to computed again in the mouse click event (to compute the last line)
+		cursor_line = 0;
+		
+		for(int i=cursor; i>0; i--){
+			if(textBuffer[i] == '\n'){
+				cursor_line++;
+			}
+		}
 
 		drawcursor();			
 
