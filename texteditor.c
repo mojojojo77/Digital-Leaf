@@ -158,7 +158,7 @@ int current_font_size = 16;  // Starting font size
 
 void drawscroll(int scroll_y){
 	SDL_GetWindowSize(window, &netWidth, &netHeight);
-	SDL_SetRenderDrawColor(renderer, 0, 150, 150, 100);
+	SDL_SetRenderDrawColor(renderer, 0, 150, 150, 255);
 	
 	scrollbar.x = netWidth - 25; 
 	scrollbar.y = render_y_off + scroll_y;
@@ -688,16 +688,17 @@ int main(int argc, char* argv[]) {
 					if (isMouseOver(scrollbar, mouseX, mouseY)) scrollbar_flag = true;
 					else scrollbar_flag = false;
 				}
-			} else if(e.type == SDL_MOUSEMOTION){
+			} else if(e.type == SDL_MOUSEMOTION && e.button.button == SDL_BUTTON_LEFT){
 				if(scrollbar_flag){ 					
-					scroll_y_pos = e.motion.y - 25;
+					scroll_y_pos = e.motion.y - 40;
 					if(scroll_y_pos < 0) scroll_y_pos = 0;
 				}
 				if(isDragging == true && (e.motion.x > 0 && e.motion.y > 25)){
 					mouseX = e.button.x;
 					mouseY = e.button.y;
 					
-					if(e.button.button == SDL_BUTTON_LEFT){
+					
+					//if(e.button.button == SDL_BUTTON_LEFT){
 					// Check if the click occurred within the clickable region
 						if(mouseY > 25){
 							current_cursor_line = (mouseY - 25)/TTF_FontHeight(font);
@@ -785,7 +786,7 @@ int main(int argc, char* argv[]) {
 						
 						if (isMouseOver(themeItem, mouseX, mouseY) && themes_item_drop_down_flag == false) themes_item_drop_down_flag = true;
 						else themes_item_drop_down_flag = false;	
-					}					
+										
 				}
 				
 				temp_flag = 0;
@@ -869,7 +870,7 @@ int main(int argc, char* argv[]) {
 				}
 				
 //				highlight_flag = 0;
-                if (((e.key.keysym.sym == SDLK_BACKSPACE && cursor >= 0) || (is_alnum_or_special(e.key.keysym.sym) && highlight_flag == 1 && temp_flag == 1) && (mod & (KMOD_SHIFT | KMOD_CTRL | KMOD_ALT | KMOD_GUI)) == 0)) {
+                if (((e.key.keysym.sym == SDLK_BACKSPACE && cursor >= 0) || (is_alnum_or_special(e.key.keysym.sym) && highlight_flag == 1 && temp_flag == 1) && (mod & (KMOD_CTRL | KMOD_ALT | KMOD_GUI)) == 0)) {
 //					printf("HEREEEEEEEEEEEEEEEEEEEEEEEE");					
 					if(highlight_flag == 0 && cursor > 0){
 						// Move text left to overwrite the character at cursor-1
@@ -1020,26 +1021,6 @@ int main(int argc, char* argv[]) {
 //						printf("%d\n",cursor);
 				} else if (e.key.keysym.sym == SDLK_DOWN) {
 
-/***					
-					SDL_GetWindowSize(window, &netWidth, &netHeight);
-					printf("%d, %d \n", highlight_end, netHeight);
-					if(cursor_highlight_start >= netHeight - 30){
-						printf("HEREREEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE");
-							SDL_Event event;
-							// Set up the mouse wheel event
-							event.type = SDL_MOUSEWHEEL;
-							event.wheel.x = 0;  // Horizontal scroll amount (0 for vertical scroll)
-							event.wheel.y = -1; // Negative for downward scroll
-							event.wheel.direction = SDL_MOUSEWHEEL_NORMAL;
-							event.key.repeat = 0; // Not a repeated key
-
-							// Push the event to SDL's event queue
-							SDL_PushEvent(&event);
-							scroll_count -= 1;
-							render_y_off -= TTF_FontHeight(font);
-
-					}						
-***/
 					if (cursor < bufferIndex - 1) {  // Ensure we're not at the end
 						int currentCol = 0;
 						int tempCursor = cursor;
@@ -1246,7 +1227,7 @@ int main(int argc, char* argv[]) {
 				}                
 				else if (mod & KMOD_CTRL){
 //					printf("Control is pressed.\n");
-					if(e.key.keysym.sym == SDLK_a && highlight_flag == 0){
+					if(e.key.keysym.sym == SDLK_a){
 						highlight_flag = 1;
 						highlight_start = 0;
 						highlight_end = bufferIndex;
