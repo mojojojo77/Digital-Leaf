@@ -10,6 +10,7 @@
 #include <ctype.h>
 #include <time.h>
 #include <math.h>
+#include "lib\tinyfiledialogs\tinyfiledialogs.h"
 
 
 #define INITIAL_SIZE 256
@@ -18,12 +19,22 @@
 
 // Helper Functions
 
+// Show notification 
+void showNotification(SDL_Renderer* , TTF_Font* , const char *);
+char* notificationMessage;
+bool notificationFlag;
+clock_t notifStartTime;
+
+
 // SDL Clickable regions 
 // File
 
 SDL_Rect fileItem = {0,0,0,0}; 
 SDL_Rect themeItem = {0,0,0,0};
 SDL_Rect scrollbar = {0,0,0,0};
+
+SDL_Rect fileItem_DROP_DOWN = {0,0,0,0};
+SDL_Rect themeItem_DROP_DOWN = {0,0,0,0};
 
 // Scrollbar variables
 bool scrollbar_flag = false;
@@ -99,6 +110,11 @@ char *strsep(char **stringp, const char *delim) {
     return start;
 }
 
+// File path or file name
+
+char* filename = NULL;
+FILE *file = NULL;
+
 // Line number
 int line_number;
 int cursor_line;
@@ -119,6 +135,24 @@ int highlight_anchor;
 bool file_item_drop_down_flag = false;
 bool themes_item_drop_down_flag = false;
 
+
+//  Drawer Flags 
+bool new_drawer_flag = false;
+bool open_drawer_flag = false;
+bool save_drawer_flag = false;
+bool saveas_drawer_flag = false;
+bool exit_drawer_flag = false;
+
+bool theme_drawer_forest_flag = false;
+bool theme_drawer_mountain_flag = false;
+bool theme_drawer_bubblegum_flag = false;
+bool theme_drawer_wood_flag = false;
+bool theme_drawer_tiles_flag = false;
+bool theme_drawer_obsidian_flag = false;
+
+bool mouse_clicked_flag = false;
+
+
 // Temporary flag for the shift operation
 int temp_flag;
 int t_flag = 0;
@@ -138,6 +172,10 @@ int netHeight;
 // Menu item dimensions
 const int FILE_ITEM_HEIGHT = 20;
 const int FILE_ITEM_WIDTH = 40;
+
+// Theme item dimensions
+const int THEME_ITEM_HEIGHT = 20;
+const int THEME_ITEM_WIDTH = 40;
 
 // Colour of the highlight when text is selected
 SDL_Color highlightColor = {33, 150, 243, 0.35*255};
@@ -246,7 +284,14 @@ void drawMenuBar() {
 void draw_file_dropdown(){
 	SDL_SetRenderDrawColor(renderer, 3, 20, 31, 255);  // Set dropdown background color
 	SDL_GetWindowSize(window, &netWidth, &netHeight);
-	SDL_Rect fileItem_DROP_DOWN = {0, FILE_ITEM_HEIGHT, 200, 142};  // Dropdown area
+	
+	fileItem_DROP_DOWN.x = 0;  // Dropdown area
+	fileItem_DROP_DOWN.y = FILE_ITEM_HEIGHT;
+	fileItem_DROP_DOWN.w = 200; 
+	fileItem_DROP_DOWN.h = 142;
+	
+	
+	
 	SDL_Rect textRect;
 	int height_one_above = fileItem_DROP_DOWN.y;
 
@@ -256,6 +301,7 @@ void draw_file_dropdown(){
 	void each_drawer(char* name){
 		// Define text color and load font
 		SDL_Color textColor = {255, 255, 255, 255};
+		
 		font_menu = TTF_OpenFont("fonts/OpenSans-Regular.ttf", 13);
 
 		// Render the text for "New"
@@ -278,19 +324,32 @@ void draw_file_dropdown(){
 		textRect.w = textWidth;
 		textRect.h = textHeight;
 
+		
+		height_one_above = textRect.y + textRect.h + 5;
+		// Render the text on the screen
+		SDL_RenderCopy(renderer, textTexture, NULL, &textRect);
 
-		// Render the horizontal line below the text
-		SDL_SetRenderDrawColor(renderer, 255, 255, 255, 50);  // Set line color (black)
+		textRect.w = 200;
+
+		// Render the horizontal line below the text, mouse over a current drawer then highlight it 
+		if (isMouseOver(textRect, mouseX, mouseY)){
+			if(name == "New") new_drawer_flag = true; else new_drawer_flag = false;
+			if(name == "Open") open_drawer_flag = true; else open_drawer_flag = false;
+			if(name == "Save") save_drawer_flag = true;else save_drawer_flag = false;
+			if(name == "Save As") saveas_drawer_flag = true; else saveas_drawer_flag = false;
+			if(name == "Exit") exit_drawer_flag = true; else exit_drawer_flag = false;
+			
+			SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+		}
+		else SDL_SetRenderDrawColor(renderer, 255, 255, 255, 50);  // Set line color (black)
+		
+		
 		SDL_RenderDrawLine(renderer,
 			fileItem_DROP_DOWN.x,                 // Left edge of the dropdown
 			textRect.y + textRect.h + 5,          // Just below the text
 			fileItem_DROP_DOWN.x + fileItem_DROP_DOWN.w,  // Right edge of the dropdown
 			textRect.y + textRect.h + 5           // Just below the text
 		);
-
-		height_one_above = textRect.y + textRect.h + 5;
-		// Render the text on the screen
-		SDL_RenderCopy(renderer, textTexture, NULL, &textRect);
 
 		// Destroy the text texture after rendering
 		SDL_DestroyTexture(textTexture);
@@ -353,7 +412,7 @@ void drawThemesBar() {
 		themeItem.y + (themeItem.h - textHeight) / 2, // Center vertically
 		textWidth,
 		textHeight
-	};
+	};	
 
 	// Render the text on the screen
 	SDL_RenderCopy(renderer, textTexture, NULL, &textRect);
@@ -365,7 +424,13 @@ void drawThemesBar() {
 void draw_themes_dropddown(){
 	SDL_SetRenderDrawColor(renderer, 3, 20, 31, 255);  // Set dropdown background color
 	SDL_GetWindowSize(window, &netWidth, &netHeight);
-	SDL_Rect themeItem_DROP_DOWN = {FILE_ITEM_WIDTH + 1, FILE_ITEM_HEIGHT, 200, 170};  // Dropdown area
+	
+	themeItem_DROP_DOWN.x = THEME_ITEM_WIDTH + 1;  // Dropdown area
+	themeItem_DROP_DOWN.y = THEME_ITEM_HEIGHT;
+	themeItem_DROP_DOWN.w = 200;
+	themeItem_DROP_DOWN.h = 170;
+	
+	
 	SDL_Rect textRect;
 	int height_one_above = themeItem_DROP_DOWN.y;
 
@@ -396,10 +461,27 @@ void draw_themes_dropddown(){
 		textRect.y = height_one_above + 5;  // Vertically center the text
 		textRect.w = textWidth;
 		textRect.h = textHeight;
-
-
+		
 		// Render the horizontal line below the text
-		SDL_SetRenderDrawColor(renderer, 255, 255, 255, 50);  // Set line color (black)
+		
+		height_one_above = textRect.y + textRect.h + 5;
+		// Render the text on the screen
+		SDL_RenderCopy(renderer, textTexture, NULL, &textRect);
+
+		textRect.w = 200;
+
+		if (isMouseOver(textRect, mouseX, mouseY)){
+			if(name == "Forest") theme_drawer_forest_flag = true; else theme_drawer_forest_flag = false;
+			if(name == "Mountain") theme_drawer_mountain_flag = true; else theme_drawer_mountain_flag = false;
+			if(name == "Bubblegum") theme_drawer_bubblegum_flag = true; else theme_drawer_bubblegum_flag = false;
+			if(name == "Wood") theme_drawer_wood_flag = true; else theme_drawer_wood_flag = false;
+			if(name == "Tiles") theme_drawer_tiles_flag = true; else theme_drawer_tiles_flag = false;
+			if(name == "Obsidian") theme_drawer_obsidian_flag = true; else theme_drawer_obsidian_flag = false;
+			
+			SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+		}
+		else SDL_SetRenderDrawColor(renderer, 255, 255, 255, 50);  // Set line color (black)
+		
 		SDL_RenderDrawLine(renderer,
 			themeItem_DROP_DOWN.x,                 // Left edge of the dropdown
 			textRect.y + textRect.h + 5,          // Just below the text
@@ -407,9 +489,6 @@ void draw_themes_dropddown(){
 			textRect.y + textRect.h + 5           // Just below the text
 		);
 
-		height_one_above = textRect.y + textRect.h + 5;
-		// Render the text on the screen
-		SDL_RenderCopy(renderer, textTexture, NULL, &textRect);
 
 		// Destroy the text texture after rendering
 		SDL_DestroyTexture(textTexture);
@@ -437,12 +516,11 @@ int main(int argc, char* argv[]) {
 	int cursor = 0;
 	int bufferIndex = 0;
 	int tmpBufferIndex = 0;
-	FILE *file = NULL;
 	
 	textBuffer[0] = '\0';
 		
 	if (argc == 2){
-		char *filename = argv[1];  // Get the filename from command-line arguments
+		filename = argv[1];  // Get the filename from command-line arguments
 		file = fopen(filename, "r+");  // Open the file in read mode
 
 		if (file == NULL) {
@@ -548,7 +626,7 @@ int main(int argc, char* argv[]) {
     while (!quit) {
 
         SDL_Event e;
-
+		
         // Handle events
         while (SDL_PollEvent(&e)) {
 			SDL_Keymod mod = SDL_GetModState();
@@ -598,6 +676,8 @@ int main(int argc, char* argv[]) {
 				
 				if(e.button.button == SDL_BUTTON_LEFT){
 				// Check if the click occurred within the clickable region
+					mouse_clicked_flag = true;
+					
 					if(mouseY > 25){
 						current_cursor_line = (mouseY - 25)/TTF_FontHeight(font);
 						current_cursor_char = floor(mouseX/9.5); // Change the approx text width value to a variable which can change as the font size changes
@@ -683,143 +763,150 @@ int main(int argc, char* argv[]) {
 					}
 					
 										
-					if (isMouseOver(fileItem, mouseX, mouseY) && file_item_drop_down_flag == false) file_item_drop_down_flag = true;
+					if ((isMouseOver(fileItem, mouseX, mouseY) && file_item_drop_down_flag == false)) file_item_drop_down_flag = true;
+					
 					else file_item_drop_down_flag = false;						
 					
-					if (isMouseOver(themeItem, mouseX, mouseY) && themes_item_drop_down_flag == false) themes_item_drop_down_flag = true;
+					if ((isMouseOver(themeItem, mouseX, mouseY) && themes_item_drop_down_flag == false)) themes_item_drop_down_flag = true;
 					else themes_item_drop_down_flag = false;	
 					
 					if (isMouseOver(scrollbar, mouseX, mouseY)) scrollbar_flag = true;
 					else scrollbar_flag = false;
 				}
-			} else if(e.type == SDL_MOUSEMOTION && e.button.button == SDL_BUTTON_LEFT){
-				if(scrollbar_flag){ 					
-					scroll_y_pos = e.motion.y - 40;
-					if(scroll_y_pos < 0) scroll_y_pos = 0;
-				}
-				if(isDragging == true && (e.motion.x > 0 && e.motion.y > 25)){
-					mouseX = e.button.x;
-					mouseY = e.button.y;
-					
-					
-					//if(e.button.button == SDL_BUTTON_LEFT){
-					// Check if the click occurred within the clickable region
-						if(mouseY > 25){
+			} else if(e.type == SDL_MOUSEMOTION){
+				mouseX = e.button.x;
+				mouseY = e.button.y;
 
-							current_cursor_line = (mouseY - 25)/TTF_FontHeight(font);
-							current_cursor_char = floor(mouseX/9.5); // Change the approx text width value to a variable which can change as the font size changes
-		//					printf("\n Current Cursor: %d , %d",current_cursor_line, current_cursor_char);
-							
-							int last_line;
-							int temp = 0;
-							int total_lines = 0;
-							int total_cursor_character = 0;
-							int flag = true;
-							
-							for(int i=0; i<bufferIndex; i++){
-								if(textBuffer[i] == '\n'){
-									total_lines++;
-									last_line = i;
+				// Mouse over file menu condition 
+				if(e.button.button == SDL_BUTTON_LEFT){
+					if(scrollbar_flag){ 					
+						scroll_y_pos = e.motion.y - 40;
+						if(scroll_y_pos < 0) scroll_y_pos = 0;
+					}
+					if(isDragging == true && (e.motion.x > 0 && e.motion.y > 25)){
+						
+						
+						//if(e.button.button == SDL_BUTTON_LEFT){
+						// Check if the click occurred within the clickable region
+							if(mouseY > 25){
+
+								current_cursor_line = (mouseY - 25)/TTF_FontHeight(font);
+								current_cursor_char = floor(mouseX/9.5); // Change the approx text width value to a variable which can change as the font size changes
+			//					printf("\n Current Cursor: %d , %d",current_cursor_line, current_cursor_char);
+								
+								int last_line;
+								int temp = 0;
+								int total_lines = 0;
+								int total_cursor_character = 0;
+								int flag = true;
+								
+								for(int i=0; i<bufferIndex; i++){
+									if(textBuffer[i] == '\n'){
+										total_lines++;
+										last_line = i;
+									}
 								}
-							}
-							
-							if(total_lines == 0)
-								last_line = 0;
+								
+								if(total_lines == 0)
+									last_line = 0;
 
-							printf("\n %d, %d", total_lines+1, current_cursor_line+1);
-							
-							if(current_cursor_line <= total_lines){
-								if(current_cursor_line == total_lines && bufferIndex - last_line < current_cursor_char){
-									goto jump_here_two;
-								}
-							// Shift the cursor to the mouse position when clicked 								
-								else{
-									for(int i=0; i<bufferIndex; i++){
-										if(textBuffer[i] == '\n'){
-											temp++; 
-										//	printf("\n Current Cursor: %d , %d",current_cursor_line, temp);
-										}
-
-										if(temp == current_cursor_line){
-											for(int j = current_cursor_char; j != '\n' && j < 0; j--){
-												if(textBuffer[i+j] == '\n'){
-													current_cursor_char = j;
-													total_cursor_character += current_cursor_char;
-													break;
-												}
+								printf("\n %d, %d", total_lines+1, current_cursor_line+1);
+								
+								if(current_cursor_line <= total_lines){
+									if(current_cursor_line == total_lines && bufferIndex - last_line < current_cursor_char){
+										goto jump_here_two;
+									}
+								// Shift the cursor to the mouse position when clicked 								
+									else{
+										for(int i=0; i<bufferIndex; i++){
+											if(textBuffer[i] == '\n'){
+												temp++; 
+											//	printf("\n Current Cursor: %d , %d",current_cursor_line, temp);
 											}
-											memmove(&textBuffer[cursor], &textBuffer[cursor+1], bufferIndex - cursor + 1);
-											memmove(&textBuffer[i+(current_cursor_char)+1], &textBuffer[i +(current_cursor_char)], bufferIndex - i +(current_cursor_char));
-											cursor = i+(current_cursor_char);
-											break;
-										}
-									}
-									
-									// If mouse is clicked outside of text, recaliberate it to the end of the current line
-									cursor_line = 0;
-									
-									for(int i=cursor; i >= 0; i--){
-										if(textBuffer[i] == '\n')
-											cursor_line++;
-									}
-									
-									//printf("\n %d, %d", current_cursor_line, cursor_line);
 
-									while(cursor_line > current_cursor_line){
-										printf("\n %d", cursor_line);
-										while(textBuffer[cursor+1] != '\n'){
+											if(temp == current_cursor_line){
+												for(int j = current_cursor_char; j != '\n' && j < 0; j--){
+													if(textBuffer[i+j] == '\n'){
+														current_cursor_char = j;
+														total_cursor_character += current_cursor_char;
+														break;
+													}
+												}
+												memmove(&textBuffer[cursor], &textBuffer[cursor+1], bufferIndex - cursor + 1);
+												memmove(&textBuffer[i+(current_cursor_char)+1], &textBuffer[i +(current_cursor_char)], bufferIndex - i +(current_cursor_char));
+												cursor = i+(current_cursor_char);
+												break;
+											}
+										}
+										
+										// If mouse is clicked outside of text, recaliberate it to the end of the current line
+										cursor_line = 0;
+										
+										for(int i=cursor; i >= 0; i--){
+											if(textBuffer[i] == '\n')
+												cursor_line++;
+										}
+										
+										//printf("\n %d, %d", current_cursor_line, cursor_line);
+
+										while(cursor_line > current_cursor_line){
+											printf("\n %d", cursor_line);
+											while(textBuffer[cursor+1] != '\n'){
+												swap(&textBuffer[cursor], &textBuffer[cursor-1]);
+												cursor--;
+											}
 											swap(&textBuffer[cursor], &textBuffer[cursor-1]);
 											cursor--;
+											cursor_line--;
+											if(cursor_line == current_cursor_line){
+												swap(&textBuffer[cursor], &textBuffer[cursor+1]);
+												cursor++;
+											} 
 										}
-										swap(&textBuffer[cursor], &textBuffer[cursor-1]);
-										cursor--;
-										cursor_line--;
-										if(cursor_line == current_cursor_line){
-											swap(&textBuffer[cursor], &textBuffer[cursor+1]);
-											cursor++;
-										} 
 									}
 								}
+								else{
+									jump_here_two:
+										memmove(&textBuffer[cursor], &textBuffer[cursor+1], bufferIndex - cursor + 1);
+										cursor = bufferIndex;
+								}
 							}
-							else{
-								jump_here_two:
-									memmove(&textBuffer[cursor], &textBuffer[cursor+1], bufferIndex - cursor + 1);
-									cursor = bufferIndex;
-							}
-						}
-						
+							
+												
+							if (isMouseOver(fileItem, mouseX, mouseY) && file_item_drop_down_flag == false) file_item_drop_down_flag = true;
+							else file_item_drop_down_flag = false;						
+							
+							if (isMouseOver(themeItem, mouseX, mouseY) && themes_item_drop_down_flag == false) themes_item_drop_down_flag = true;
+							else themes_item_drop_down_flag = false;	
 											
-						if (isMouseOver(fileItem, mouseX, mouseY) && file_item_drop_down_flag == false) file_item_drop_down_flag = true;
-						else file_item_drop_down_flag = false;						
-						
-						if (isMouseOver(themeItem, mouseX, mouseY) && themes_item_drop_down_flag == false) themes_item_drop_down_flag = true;
-						else themes_item_drop_down_flag = false;	
-										
-				}
-				
-				temp_flag = 1;
-				
-				// Store current cursor position before any movement
-				
-				if (!highlight_flag) {
-					// First time initiating highlight
-					highlight_flag = 1;
-					highlight_anchor = cursor; // Store the initial position where highlighting began
-					highlight_start = cursor;
-					highlight_end = cursor;
-				}
-				
-				if(cursor < highlight_start){
-					highlight_start = cursor+1;
-					highlight_end = highlight_anchor+1;
-				}else if(cursor > highlight_start){
-					highlight_start = highlight_anchor;
-					highlight_end = cursor;
+					}
+					
+					temp_flag = 1;
+					
+					// Store current cursor position before any movement
+					
+					if (!highlight_flag) {
+						// First time initiating highlight
+						highlight_flag = 1;
+						highlight_anchor = cursor; // Store the initial position where highlighting began
+						highlight_start = cursor;
+						highlight_end = cursor;
+					}
+					
+					if(cursor < highlight_start){
+						highlight_start = cursor+1;
+						highlight_end = highlight_anchor+1;
+					}else if(cursor > highlight_start){
+						highlight_start = highlight_anchor;
+						highlight_end = cursor;
+					}
 				}
 				
 			} else if(e.type == SDL_MOUSEBUTTONUP){
 				isDragging = false; 
 				scrollbar_flag = false;
+				mouse_clicked_flag = false;
+				
 			} else if (e.type == SDL_MOUSEWHEEL){
 
 				if(mod & KMOD_CTRL){
@@ -1065,29 +1152,58 @@ int main(int argc, char* argv[]) {
 				} 
 								
 				if(mod & KMOD_CTRL){
-					
-					
-					
+										
 					if(e.key.keysym.sym == SDLK_s){	
-						if (file) {
-							memmove(&textBuffer[cursor],&textBuffer[cursor+1], bufferIndex - cursor);
-							cursor = bufferIndex;
-
-							printf("Here");
-							ftruncate(fileno(file), 0);
-							rewind(file);
-							int result = fprintf(file, "%.*s", bufferIndex, textBuffer);
-							fflush(file);
-							if (result < 0) {
-								printf("Error while saving file");
-							}
-							else{
-								printf("File saved");
-							}
-						}else{
-							printf("No file opened");
-						}						
+						
+						if(!file){
+						const char *filters[2] = {".txt", ".c"};	
+						
+						filename = tinyfd_saveFileDialog(
+							"Save File",            // Dialog title
+							"default.txt",           // Default file name
+							2,                      // Number of filters
+							filters,                // File type filters
+							"Text or C Files"       // Filter description
+						);
+						
+						file = fopen(filename, "w");
+						file = fopen(filename, "r+");
+						}
+						
+						
+						if(filename){
+							
+						
+							if (file) {
+								memmove(&textBuffer[cursor],&textBuffer[cursor+1], bufferIndex - cursor);
+								cursor = bufferIndex;
+									
+								printf("Here");
+								ftruncate(fileno(file), 0);
+								rewind(file);
+								int result = fprintf(file, "%.*s", bufferIndex, textBuffer);
+								fflush(file);
+								if (result < 0) {
+									printf("Error while saving file");
+								}
+								else{
+									 notificationMessage = "File saved successfully!";
+									 notificationFlag = true;
+									 notifStartTime = SDL_GetTicks();
+								}
+							}else{
+									notificationMessage = "Error while saving the file!";
+									notificationFlag = true;
+									notifStartTime = SDL_GetTicks();
+							}	
+						}
+						else{
+									notificationMessage = "File path or file extension incorrect!";
+									notificationFlag = true;
+									notifStartTime = SDL_GetTicks();
+						}
 					}
+					
 					if(e.key.keysym.sym == SDLK_c){
 						if(highlight_flag == 1){
 							SDL_SetClipboardText(string_slice(textBuffer,highlight_start,highlight_end));
@@ -1459,10 +1575,70 @@ int main(int argc, char* argv[]) {
 		drawMenuBar();
 		drawThemesBar();
 		drawscroll(scroll_y_pos);
+		if(notificationFlag){
+			showNotification(renderer, font, notificationMessage);
+			if(SDL_GetTicks() - notifStartTime > 3000)
+				notificationFlag = false;
+		}
 		
-		if(file_item_drop_down_flag == true)draw_file_dropdown();
-		if(themes_item_drop_down_flag == true)draw_themes_dropddown(); 
+		if(file_item_drop_down_flag == true){
+			draw_file_dropdown();
 			
+			if(new_drawer_flag && mouse_clicked_flag){
+				printf("New Drawer Selected!");
+				new_drawer_flag = false;
+			}
+			else if(open_drawer_flag && mouse_clicked_flag){
+				printf("Open Drawer Selected!");
+				open_drawer_flag = false;
+			}
+			else if(save_drawer_flag && mouse_clicked_flag){
+				printf("Save Drawer Selected!");
+				save_drawer_flag = false;
+			}
+			else if(saveas_drawer_flag && mouse_clicked_flag){
+				printf("Save as Drawer Selected!");
+				saveas_drawer_flag = false;
+			}
+			else if(exit_drawer_flag && mouse_clicked_flag){
+				printf("Exit Drawer Selected!");
+				exit_drawer_flag = false;
+			}
+		}else{
+			file_item_drop_down_flag == false;
+		}
+
+		if(themes_item_drop_down_flag == true){
+			draw_themes_dropddown();
+			
+			if(theme_drawer_forest_flag && mouse_clicked_flag){
+				printf("Theme Forest Drawer Selected!");
+				theme_drawer_forest_flag = false;
+			}
+			else if(theme_drawer_mountain_flag && mouse_clicked_flag){
+				printf("Theme Mountain Drawer Selected!");
+				theme_drawer_mountain_flag = false;
+			}
+			else if(theme_drawer_bubblegum_flag && mouse_clicked_flag){
+				printf("Theme Bubblegum Drawer Selected!");
+				theme_drawer_bubblegum_flag = false;
+			}
+			else if(theme_drawer_wood_flag && mouse_clicked_flag){
+				printf("Theme wood Drawer Selected!");
+				theme_drawer_wood_flag = false;
+			}
+			else if(theme_drawer_tiles_flag && mouse_clicked_flag){
+				printf("Theme tiles Drawer Selected!");
+				theme_drawer_tiles_flag = false;
+			}
+			else if(theme_drawer_obsidian_flag && mouse_clicked_flag){
+				printf("Theme obsidian Drawer Selected!");
+				theme_drawer_obsidian_flag = false;
+			}
+		}else{
+			themes_item_drop_down_flag = false;
+		}
+		
 		line_number = tokenCnt;
 //		printf("%d\n", line_number);
 //		printf("%d",tokenCnt); DEGUBGIN ATTEMPT TO IMPLEMENT A NEW LINE ON AN EMPTY TOKEN 
@@ -1478,3 +1654,49 @@ int main(int argc, char* argv[]) {
     return 0;
 }
 
+
+// Helper Function to display notificaiton 
+
+void showNotification(SDL_Renderer *renderer, TTF_Font *font, const char *message) {
+	
+	int windowWidth = 400; // Width of the notification popup
+	int windowHeight = 100; // Height of the notification popup
+	SDL_GetWindowSize(window, &netWidth, &netHeight);
+	
+	SDL_Rect notificationRect = {
+		(netWidth - windowWidth - 20),  // Center horizontally
+		(netHeight - windowHeight - 20), // Center vertically
+		windowWidth,                      // Width
+		windowHeight                      // Height
+	};
+
+	// Render notification background
+	SDL_SetRenderDrawColor(renderer, 50, 50, 50, 150); // Gray background
+	SDL_RenderFillRect(renderer, &notificationRect);
+
+	// Add text to the notification
+	SDL_Color textColor = {255, 255, 255, 255}; // White text
+	SDL_Surface *textSurface = TTF_RenderText_Blended(font, message, textColor);
+	SDL_Texture *textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
+
+	int textWidth, textHeight;
+	SDL_QueryTexture(textTexture, NULL, NULL, &textWidth, &textHeight);
+
+	SDL_Rect textRect = {
+		notificationRect.x + (notificationRect.w - textWidth) / 2,
+		notificationRect.y + (notificationRect.h - textHeight) / 2,
+		textWidth,
+		textHeight
+	};
+
+
+	SDL_RenderCopy(renderer, textTexture, NULL, &textRect);
+
+	SDL_RenderPresent(renderer);
+
+	// Free resources
+	SDL_FreeSurface(textSurface);
+	SDL_DestroyTexture(textTexture);
+
+    // Delay to display the notification for the specified duration (in milliseconds)
+}

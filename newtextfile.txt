@@ -10,5 +10,3 @@ This is the third line
 This is the fourth
 New file 
 New file 2
-New file 3
-New file 4
