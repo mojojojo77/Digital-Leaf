@@ -616,7 +616,9 @@ int main(int argc, char* argv[]) {
 							}
 						}
 						
-						printf("\n %d, %d", total_lines+1, current_cursor_line+1);
+						if(total_lines == 0)
+							last_line = 0;
+						printf("\n %d", last_line);
 						
 						if(current_cursor_line <= total_lines){
 							if(current_cursor_line == total_lines && bufferIndex - last_line < current_cursor_char){
@@ -673,6 +675,8 @@ int main(int argc, char* argv[]) {
 						}
 						else{
 							jump_here_one:
+								printf("HERE");
+
 								memmove(&textBuffer[cursor], &textBuffer[cursor+1], bufferIndex - cursor + 1);
 								cursor = bufferIndex;
 						}
@@ -701,6 +705,7 @@ int main(int argc, char* argv[]) {
 					//if(e.button.button == SDL_BUTTON_LEFT){
 					// Check if the click occurred within the clickable region
 						if(mouseY > 25){
+
 							current_cursor_line = (mouseY - 25)/TTF_FontHeight(font);
 							current_cursor_char = floor(mouseX/9.5); // Change the approx text width value to a variable which can change as the font size changes
 		//					printf("\n Current Cursor: %d , %d",current_cursor_line, current_cursor_char);
@@ -718,6 +723,9 @@ int main(int argc, char* argv[]) {
 								}
 							}
 							
+							if(total_lines == 0)
+								last_line = 0;
+
 							printf("\n %d, %d", total_lines+1, current_cursor_line+1);
 							
 							if(current_cursor_line <= total_lines){
@@ -789,7 +797,7 @@ int main(int argc, char* argv[]) {
 										
 				}
 				
-				temp_flag = 0;
+				temp_flag = 1;
 				
 				// Store current cursor position before any movement
 				
@@ -870,7 +878,7 @@ int main(int argc, char* argv[]) {
 				}
 				
 //				highlight_flag = 0;
-                if (((e.key.keysym.sym == SDLK_BACKSPACE && cursor >= 0) || (is_alnum_or_special(e.key.keysym.sym) && highlight_flag == 1 && temp_flag == 1) && (mod & (KMOD_CTRL | KMOD_ALT | KMOD_GUI)) == 0)) {
+                if (((e.key.keysym.sym == SDLK_BACKSPACE && cursor >= 0) || (is_alnum_or_special(e.key.keysym.sym) && highlight_flag == 1 && temp_flag == 1) && (mod & ( KMOD_CTRL | KMOD_ALT | KMOD_GUI)) == 0)) {
 //					printf("HEREEEEEEEEEEEEEEEEEEEEEEEE");					
 					if(highlight_flag == 0 && cursor > 0){
 						// Move text left to overwrite the character at cursor-1
