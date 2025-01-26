@@ -16,9 +16,30 @@
 #define INITIAL_SIZE 256
 #define GROWTH_FACTOR 2
 
+// Color variables for themes
+SDL_Color background_color = {0,0,0,250};
+SDL_Color highlightColor = {33, 150, 243, 0.35*255}; //{};
+
+SDL_Color text_color = {255,255,255,255};
+SDL_Color drawertext_color = {250,250,250,250};
+
+SDL_Color menu_bar_color = {27, 40, 48, 255};
+SDL_Color scroll_bar_color = {0, 150, 150, 255};
+SDL_Color text_select_color;
+
+SDL_Color dropdown_color = {3, 20, 31, 255};
+
+SDL_Color menubar_item_font_color = {255, 255, 255, 255};
+SDL_Color menu_bar_item_color = {3, 20, 31, 255};
+SDL_Color cursor_color = {0, 150, 150, 100};
+
+SDL_Color horizontal_line_below_text_in_menu_color = {250,250,250,50};
+SDL_Color horizontal_line_below_text_in_menu_color_bold = {250,250,250,250};
+
+SDL_Color notification_background_color = {150,150,150,50};
+SDL_Color notification_text_color = {250,250,250,250};
 
 // Helper Functions
-
 // Show notification 
 void showNotification(SDL_Renderer* , TTF_Font* , const char *);
 char* notificationMessage;
@@ -196,9 +217,6 @@ const int FILE_ITEM_WIDTH = 40;
 const int THEME_ITEM_HEIGHT = 20;
 const int THEME_ITEM_WIDTH = 40;
 
-// Colour of the highlight when text is selected
-SDL_Color highlightColor = {33, 150, 243, 0.35*255};
-
 enum MenuItem {
     FILE_QUIT,
     FILE_COUNT
@@ -215,7 +233,7 @@ int current_font_size = 16;  // Starting font size
 
 void drawscroll(int scroll_y){
 	SDL_GetWindowSize(window, &netWidth, &netHeight);
-	SDL_SetRenderDrawColor(renderer, 0, 150, 150, 255);
+	SDL_SetRenderDrawColor(renderer, scroll_bar_color.r, scroll_bar_color.g, scroll_bar_color.b, scroll_bar_color.a); //0, 150, 150, 255
 	
 	scrollbar.x = netWidth - 25; 
 	scrollbar.y = render_y_off + scroll_y;
@@ -226,7 +244,7 @@ void drawscroll(int scroll_y){
 }
 
 void drawcursor(){
-	SDL_SetRenderDrawColor(renderer, 0, 150, 150, 100);
+	SDL_SetRenderDrawColor(renderer, cursor_color.r, cursor_color.g, cursor_color.b, cursor_color.a ); // 0, 150, 150, 100
 	SDL_GetWindowSize(window, &netWidth, &netHeight);
 	
 	// Calculate the cursor's Y position
@@ -242,14 +260,14 @@ void drawcursor(){
 
 void drawMenuBar() {
 	// Set the color for the menu bar (dark gray)	
-	SDL_SetRenderDrawColor(renderer, 27, 40, 48, 255);
+	SDL_SetRenderDrawColor(renderer, menu_bar_color.r, menu_bar_color.g, menu_bar_color.b, menu_bar_color.a); //27, 40, 48, 255
 	SDL_GetWindowSize(window, &netWidth, &netHeight);
 	SDL_Rect menuBar = {0, 0, netWidth, FILE_ITEM_HEIGHT};
 	SDL_RenderFillRect(renderer, &menuBar);
 	
 
 	// Draw the "File" menu item
-	SDL_SetRenderDrawColor(renderer, 3, 20, 31, 255);  // White color
+	SDL_SetRenderDrawColor(renderer, menu_bar_item_color.r, menu_bar_item_color.g, menu_bar_item_color.b, menu_bar_item_color.a );  // 3, 20, 31, 255
 	fileItem.x = 0;
 	fileItem.y = 0;
 	fileItem.w = FILE_ITEM_WIDTH;
@@ -267,7 +285,7 @@ void drawMenuBar() {
 
 
 	// Set text color (black)
-	SDL_Color textColor = {255, 255, 255, 255};
+	SDL_Color textColor = {menubar_item_font_color.r, menubar_item_font_color.g, menubar_item_font_color.b, menubar_item_font_color.a};  //255, 255, 255, 255
 
 	font_menu = TTF_OpenFont("fonts/OpenSans-Regular.ttf", 13);
 	
@@ -301,7 +319,7 @@ void drawMenuBar() {
 }
 
 void draw_file_dropdown(){
-	SDL_SetRenderDrawColor(renderer, 3, 20, 31, 255);  // Set dropdown background color
+	SDL_SetRenderDrawColor(renderer, dropdown_color.r, dropdown_color.g, dropdown_color.b, dropdown_color.a);  // Set dropdown background color  3, 20, 31, 255
 	SDL_GetWindowSize(window, &netWidth, &netHeight);
 	
 	fileItem_DROP_DOWN.x = 0;  // Dropdown area
@@ -319,7 +337,7 @@ void draw_file_dropdown(){
 
 	void each_drawer(char* name){
 		// Define text color and load font
-		SDL_Color textColor = {255, 255, 255, 255};
+		SDL_Color textColor = {drawertext_color.r, drawertext_color.g, drawertext_color.b, drawertext_color.a }; // 255, 255, 255, 255
 		
 		font_menu = TTF_OpenFont("fonts/OpenSans-Regular.ttf", 13);
 
@@ -358,10 +376,10 @@ void draw_file_dropdown(){
 			if(name == "Save As") saveas_drawer_flag = true; else saveas_drawer_flag = false;
 			if(name == "Exit") exit_drawer_flag = true; else exit_drawer_flag = false;
 			
-			SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+			SDL_SetRenderDrawColor(renderer, horizontal_line_below_text_in_menu_color_bold.r, horizontal_line_below_text_in_menu_color_bold.g, horizontal_line_below_text_in_menu_color_bold.b, horizontal_line_below_text_in_menu_color_bold.a); // 
 		}
 		else {
-			SDL_SetRenderDrawColor(renderer, 255, 255, 255, 50);
+			SDL_SetRenderDrawColor(renderer, horizontal_line_below_text_in_menu_color.r, horizontal_line_below_text_in_menu_color.g, horizontal_line_below_text_in_menu_color.b, horizontal_line_below_text_in_menu_color.a);
 			}  // Set line color (black)
 		
 		
@@ -384,14 +402,14 @@ void draw_file_dropdown(){
 }
 void drawThemesBar() {
 	// Set the color for the menu bar (dark gray)	
-	SDL_SetRenderDrawColor(renderer, 27, 40, 48, 255);
+	SDL_SetRenderDrawColor(renderer, menu_bar_item_color.r, menu_bar_color.g, menu_bar_color.b, menu_bar_color.a);
 	SDL_GetWindowSize(window, &netWidth, &netHeight);
 	SDL_Rect themeBar = {FILE_ITEM_WIDTH, 0, netWidth, FILE_ITEM_HEIGHT};
 	SDL_RenderFillRect(renderer, &themeBar);
 	
 
 	// Draw the "File" menu item
-	SDL_SetRenderDrawColor(renderer, 3, 20, 31, 255);  // White color
+	SDL_SetRenderDrawColor(renderer, menu_bar_item_color.r, menu_bar_item_color.g, menu_bar_item_color.b, menu_bar_item_color.a);  // White color
 	themeItem.x = FILE_ITEM_WIDTH + 1;
 	themeItem.y = 0;
 	themeItem.w = FILE_ITEM_WIDTH + 20;
@@ -409,7 +427,7 @@ void drawThemesBar() {
 
 
 	// Set text color (black)
-	SDL_Color textColor = {255, 255, 255, 255};
+	SDL_Color textColor = {text_color.r, text_color.g, text_color.g, text_color.a};
 
 	font_menu = TTF_OpenFont("fonts/OpenSans-Regular.ttf", 13);
 	
@@ -443,7 +461,7 @@ void drawThemesBar() {
 }
 
 void draw_themes_dropddown(){
-	SDL_SetRenderDrawColor(renderer, 3, 20, 31, 255);  // Set dropdown background color
+	SDL_SetRenderDrawColor(renderer, dropdown_color.r, dropdown_color.g, dropdown_color.b, dropdown_color.a);  // Set dropdown background color
 	SDL_GetWindowSize(window, &netWidth, &netHeight);
 	
 	themeItem_DROP_DOWN.x = THEME_ITEM_WIDTH + 1;  // Dropdown area
@@ -460,7 +478,7 @@ void draw_themes_dropddown(){
 
 	void each_drawer(char* name){
 		// Define text color and load font
-		SDL_Color textColor = {255, 255, 255, 255};
+		SDL_Color textColor = {text_color.r, text_color.g, text_color.b, text_color.a};
 		font_menu = TTF_OpenFont("fonts/OpenSans-Regular.ttf", 13);
 
 		// Render the text for "New"
@@ -499,9 +517,9 @@ void draw_themes_dropddown(){
 			if(name == "Tiles") theme_drawer_tiles_flag = true; else theme_drawer_tiles_flag = false;
 			if(name == "Obsidian") theme_drawer_obsidian_flag = true; else theme_drawer_obsidian_flag = false;
 			
-			SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+			SDL_SetRenderDrawColor(renderer, horizontal_line_below_text_in_menu_color_bold.r, horizontal_line_below_text_in_menu_color_bold.g, horizontal_line_below_text_in_menu_color_bold.b, horizontal_line_below_text_in_menu_color_bold.a);
 		}
-		else SDL_SetRenderDrawColor(renderer, 255, 255, 255, 50);  // Set line color (black)
+		else SDL_SetRenderDrawColor(renderer, horizontal_line_below_text_in_menu_color.r, horizontal_line_below_text_in_menu_color.g, horizontal_line_below_text_in_menu_color.b, horizontal_line_below_text_in_menu_color.a);  // Set line color (black)
 		
 		SDL_RenderDrawLine(renderer,
 			themeItem_DROP_DOWN.x,                 // Left edge of the dropdown
@@ -624,7 +642,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    SDL_Color textColor = {255, 255, 255, 255}; // Black color
+    SDL_Color textColor = {text_color.r, text_color.g, text_color.b, text_color.a}; // Black color
     SDL_StartTextInput();
 
 	Uint32 cursorBlinkTime = SDL_GetTicks(); // Cursor Blink time 
@@ -1243,15 +1261,15 @@ int main(int argc, char* argv[]) {
 									 notifStartTime = SDL_GetTicks();
 								}
 							}else{
-									notificationMessage = "Error while saving the file!";
-									notificationFlag = true;
-									notifStartTime = SDL_GetTicks();
+								notificationMessage = "Error while saving the file!";
+								notificationFlag = true;
+								notifStartTime = SDL_GetTicks();
 							}	
 						}
 						else{
-									notificationMessage = "File path or file extension incorrect!";
-									notificationFlag = true;
-									notifStartTime = SDL_GetTicks();
+							notificationMessage = "File path or file extension incorrect!";
+							notificationFlag = true;
+							notifStartTime = SDL_GetTicks();
 						}
 					}
 					
@@ -1484,7 +1502,7 @@ int main(int argc, char* argv[]) {
 
 		
 		// Set color to red for the rectangle (this will be the color key)
-		SDL_SetRenderDrawColor(renderer, 0, 0, 0,0);
+		SDL_SetRenderDrawColor(renderer, background_color.r, background_color.g, background_color.b, background_color.a);
 		SDL_RenderClear(renderer);
 		
 		// Update screen
@@ -1675,6 +1693,12 @@ int main(int argc, char* argv[]) {
 				printf("\n Forest Drawer Selected!");
 				theme_drawer_forest_flag = false;
 				themes_item_drop_down_flag = false;
+				//background_color = ;
+				//highlight_color = ;
+				//text_color = ;
+				//menu_bar_color = ;
+				//text_select_color = ;
+				//scroll_bar_color = ;
 			}
 			else if(theme_drawer_mountain_flag_clicked){
 				printf("\n Mountain Drawer Selected!");
@@ -1746,11 +1770,11 @@ void showNotification(SDL_Renderer *renderer, TTF_Font *font, const char *messag
 	};
 
 	// Render notification background
-	SDL_SetRenderDrawColor(renderer, 50, 50, 50, 150); // Gray background
+	SDL_SetRenderDrawColor(renderer, notification_background_color.r, notification_background_color.g, notification_background_color.b, notification_background_color.a); // Gray background 50, 50, 50, 150
 	SDL_RenderFillRect(renderer, &notificationRect);
 
 	// Add text to the notification
-	SDL_Color textColor = {255, 255, 255, 255}; // White text
+	SDL_Color textColor = {notification_text_color.r, notification_text_color.g, notification_text_color.b, notification_text_color.a}; // White text
 	SDL_Surface *textSurface = TTF_RenderText_Blended(font, message, textColor);
 	SDL_Texture *textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
 
