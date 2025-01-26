@@ -1,12 +1,1 @@
-This is the first line
-This is the second line
-This is the third line
-This is the fourthThis is the first line
-This is the second line
-This is the third line
-This is the fourthThis is the first line
-This is the second line
-This is the third line
-This is the fourth
-New file 
-New file 2
+First line

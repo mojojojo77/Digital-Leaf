@@ -235,6 +235,7 @@ SDL_Rect textRect;
 bool scrollbar_flag = false;
 int scroll_y_pos;
 
+bool fileSaved = false;
 
 // Mouse functionality variables	
 bool isDragging = false;
@@ -740,25 +741,25 @@ int main(int argc, char* argv[]) {
 			return 1;
 		}
 
-    size_t bytesRead;
-    while ((bytesRead = fread(textBuffer + bufferIndex, 1, buffer_size - bufferIndex, file)) > 0) {
-        bufferIndex += bytesRead;
+		size_t bytesRead;
+		while ((bytesRead = fread(textBuffer + bufferIndex, 1, buffer_size - bufferIndex, file)) > 0) {
+			bufferIndex += bytesRead;
 
-        // If we exceed the current buffer size, grow the buffer
-        if (bufferIndex >= buffer_size) {
-            buffer_size *= GROWTH_FACTOR; // Increase buffer size
-            textBuffer = (char*)realloc(textBuffer, buffer_size);
-			tempBuffer = (char*)realloc(tempBuffer, buffer_size);
-            if (textBuffer == NULL || tempBuffer == NULL) {
-                perror("realloc failed");
-                fclose(file);
-                return 1;
-            }
-            printf("Buffer size updated: %zu\n", buffer_size);
-        }
-        // Write the buffer to stdout (or process it)
- //       fwrite(textBuffer, 1, bufferIndex, stdout);
-    }
+			// If we exceed the current buffer size, grow the buffer
+			if (bufferIndex >= buffer_size) {
+				buffer_size *= GROWTH_FACTOR; // Increase buffer size
+				textBuffer = (char*)realloc(textBuffer, buffer_size);
+				tempBuffer = (char*)realloc(tempBuffer, buffer_size);
+				if (textBuffer == NULL || tempBuffer == NULL) {
+					perror("realloc failed");
+					fclose(file);
+					return 1;
+				}
+				printf("Buffer size updated: %zu\n", buffer_size);
+			}
+			// Write the buffer to stdout (or process it)
+	 //       fwrite(textBuffer, 1, bufferIndex, stdout);
+		}
 		
 //		bufferIndex = strlen(textBuffer);
 //		printf("%d",bufferIndex);
@@ -886,6 +887,8 @@ int main(int argc, char* argv[]) {
 						SDL_Log("Window resized to %d x %d", netWidth, netHeight);
 					}
 			} else if (e.type == SDL_MOUSEBUTTONDOWN) {
+				
+				fileSaved = false;
 				mouseX = e.button.x;
 				mouseY = e.button.y;
 				
@@ -1440,9 +1443,10 @@ int main(int argc, char* argv[]) {
 									printf("Error while saving file");
 								}
 								else{
+									 fileSaved = true;
 									 notificationMessage = "File saved successfully!";
 									 notificationFlag = true;
-									 notifStartTime = SDL_GetTicks();
+									 notifStartTime = SDL_GetTicks();	 
 								}
 							}else{
 								notificationMessage = "Error while saving the file!";
@@ -1841,26 +1845,308 @@ int main(int argc, char* argv[]) {
 				printf("\n New Drawer Selected!");
 				new_drawer_flag = false;
 				file_item_drop_down_flag = false;
+				
+				if(!fileSaved){
+					if(file){
+						int result_d = tinyfd_messageBox(
+							"",      // Title of the message box
+							"Do you want to save chanes made to the previos file?", // The message
+							"yesno",      // Type of dialog: yes/no, ok/cancel, etc.
+							"question",   // Icon type (question, info, warning, error)
+							0             // Default button (0 means no default button)
+						);
+						
+						if(result_d == 1){
+							ftruncate(fileno(file), 0);
+							rewind(file);
+							
+							if (file) {
+								memmove(&textBuffer[cursor],&textBuffer[cursor+1], bufferIndex - cursor);
+								cursor = bufferIndex;
+								
+								int result = fprintf(file, "%.*s", bufferIndex, textBuffer);
+								fflush(file);
+								if (result < 0) {
+									printf("Error while saving file");
+								}
+								fclose(file);
+								showNotification(renderer, font, "Previous progress saved!");
+							}	
+							bufferIndex = 0;
+						}
+						else{
+							fclose(file);
+							bufferIndex = 0;
+							showNotification(renderer, font, "Previous progress not saved!");
+						}
+					}else{
+							showNotification(renderer, font, "Overriding current progress!");
+					}
+				}
+				
+				const char *filters[2] = {".txt", ".c"};	
+				
+				filename = tinyfd_saveFileDialog(
+					"Select a new name",            // Dialog title
+					"default.txt",           // Default file name
+					2,                      // Number of filters
+					filters,                // File type filters
+					"Text or C Files"       // Filter description
+				);
+				
+				file = fopen(filename, "w");
+				file = fopen(filename, "r+");
+							
+				if(filename){				
+					if (file) {
+						memset(textBuffer, 0, buffer_size); // Sets all bytes to 0
+						bufferIndex = 0;                        // Reset buffer index to the start
+						cursor = 0;                             							
+						
+						//printf("Here");
+						ftruncate(fileno(file), 0);
+						rewind(file);
+						int result = fprintf(file, "%.*s", bufferIndex, textBuffer);
+						fflush(file);
+						if (result < 0) {
+							printf("Error while creating file");
+						}
+						else{
+							 notificationMessage = "File created successfully!";
+							 notificationFlag = true;
+							 notifStartTime = SDL_GetTicks();
+						}
+					}else{
+						notificationMessage = "Error while creating the file!";
+						notificationFlag = true;
+						notifStartTime = SDL_GetTicks();
+					}	
+				}
+				else{
+					notificationMessage = "File path or file extension incorrect!";
+					notificationFlag = true;
+					notifStartTime = SDL_GetTicks();
+				}
 			}
 			else if(open_drawer_flag_clicked){
 				printf("\n Open Drawer Selected!");
 				open_drawer_flag = false;
 				file_item_drop_down_flag = false;
+				
+				char const * filters[2] = {"*.txt", "*.c"};
+				const char * single_f = ".txt";
+				
+				if(file){
+					int result_d = tinyfd_messageBox(
+						"",      // Title of the message box
+						"Do you want to save chanes made to the previos file?", // The message
+						"yesno",      // Type of dialog: yes/no, ok/cancel, etc.
+						"question",   // Icon type (question, info, warning, error)
+						0             // Default button (0 means no default button)
+					);
+					if(result_d == 0){
+						showNotification(renderer,font, "Previous file not saved!");
+					}else{
+						if(result_d == 1){
+							ftruncate(fileno(file), 0);
+							rewind(file);
+							
+							if (file) {
+								memmove(&textBuffer[cursor],&textBuffer[cursor+1], bufferIndex - cursor);
+								cursor = bufferIndex;
+								
+								int result = fprintf(file, "%.*s", bufferIndex, textBuffer);
+								fflush(file);
+								if (result < 0) {
+									printf("Error while saving file");
+								}
+								fclose(file);
+							}							
+							//free(textBuffer);
+							//free(tempBuffer);
+						}else{
+							showNotification(renderer,font, "Previous file not saved!");
+						}
+					}
+					fclose(file);
+				}
+				
+				bufferIndex = 0;
+				
+				filename = tinyfd_openFileDialog(
+					"Select a file",  // Title of the dialog
+					"",               // Initial directory (empty means it opens in the current directory)
+					2,
+					filters, 			// Filter (0 means no filter)
+					NULL,              // Extensions (NULL means no specific extensions)
+					0                  // Allow multiple files (0 means only one file can be selected)
+				);
+				
+				if(filename){
+					file = fopen(filename, "r+");
+					printf(filename);
+
+					if (file) {
+						printf("Selected file: %s\n", file);
+					} else {
+						showNotification(renderer, font, "No file selected or dialog was canceled.\n");
+					}
+				}
+				else{
+					showNotification(renderer, font, "Incorrect file path!");
+				}
+				
+				size_t bytesRead;
+				while ((bytesRead = fread(textBuffer + bufferIndex, 1, buffer_size - bufferIndex, file)) > 0) {
+					bufferIndex += bytesRead;
+
+					// If we exceed the current buffer size, grow the buffer
+					if (bufferIndex >= buffer_size) {
+						buffer_size *= GROWTH_FACTOR; // Increase buffer size
+						textBuffer = (char*)realloc(textBuffer, buffer_size);
+						tempBuffer = (char*)realloc(tempBuffer, buffer_size);
+						if (textBuffer == NULL || tempBuffer == NULL) {
+							perror("realloc failed");
+							fclose(file);
+							return 1;
+						}
+						printf("Buffer size updated: %zu\n", buffer_size);
+					}
+					// Write the buffer to stdout (or process it)
+			 //       fwrite(textBuffer, 1, bufferIndex, stdout);
+				}
+				
+		//		bufferIndex = strlen(textBuffer);
+		//		printf("%d",bufferIndex);
+				cursor = bufferIndex;
+				
 			}
 			else if(save_drawer_flag_clicked){
+				save_progress:
 				printf("\n Save Drawer Selected!");
 				save_drawer_flag = false;
 				file_item_drop_down_flag = false;
+				
+				if (file) {
+					memmove(&textBuffer[cursor],&textBuffer[cursor+1], bufferIndex - cursor);
+					cursor = bufferIndex;
+						
+					//printf("Here");
+					ftruncate(fileno(file), 0);
+					rewind(file);
+					int result = fprintf(file, "%.*s", bufferIndex, textBuffer);
+					fflush(file);
+					if (result < 0) {
+						printf("Error while saving file");
+					}
+					else{
+						 notificationMessage = "File saved successfully!";
+						 notificationFlag = true;
+						 notifStartTime = SDL_GetTicks();
+					}
+				}else{
+					notificationMessage = "Try Save As or open new file!";
+					notificationFlag = true;
+					notifStartTime = SDL_GetTicks();
+				}	
 			}
+			
 			else if(saveas_drawer_flag_clicked){
 				printf("\n Save as Drawer Selected!");
 				saveas_drawer_flag = false;
 				file_item_drop_down_flag = false;
+				
+				if(!file){
+				const char *filters[2] = {".txt", ".c"};	
+				
+				filename = tinyfd_saveFileDialog(
+					"Save File",            // Dialog title
+					"default.txt",           // Default file name
+					2,                      // Number of filters
+					filters,                // File type filters
+					"Text or C Files"       // Filter description
+				);
+				
+				file = fopen(filename, "w");
+				file = fopen(filename, "r+");
+				}
+				
+				
+				if(filename){				
+					if (file) {
+						memmove(&textBuffer[cursor],&textBuffer[cursor+1], bufferIndex - cursor);
+						cursor = bufferIndex;
+							
+						//printf("Here");
+						ftruncate(fileno(file), 0);
+						rewind(file);
+						int result = fprintf(file, "%.*s", bufferIndex, textBuffer);
+						fflush(file);
+						if (result < 0) {
+							printf("Error while saving file");
+						}
+						else{
+							 notificationMessage = "File saved successfully!";
+							 notificationFlag = true;
+							 notifStartTime = SDL_GetTicks();
+						}
+					}else{
+						notificationMessage = "Error while saving the file!";
+						notificationFlag = true;
+						notifStartTime = SDL_GetTicks();
+					}	
+				}
+				else{
+					notificationMessage = "File path or file extension incorrect!";
+					notificationFlag = true;
+					notifStartTime = SDL_GetTicks();
+				}
 			}
 			else if(exit_drawer_flag_clicked){
 				printf("\n Exit Drawer Selected!");
 				exit_drawer_flag = false;
 				file_item_drop_down_flag = false;
+				
+				if(fileSaved){
+					close_without_saving:
+					if(file){
+	//					printf("\n %d",bufferIndex);
+
+						ftruncate(fileno(file), 0);
+						rewind(file);
+						
+						if (file) {
+							memmove(&textBuffer[cursor],&textBuffer[cursor+1], bufferIndex - cursor);
+							cursor = bufferIndex;
+							
+							int result = fprintf(file, "%.*s", bufferIndex, textBuffer);
+							fflush(file);
+							if (result < 0) {
+								printf("Error while saving file");
+							}
+							fclose(file);
+						}
+						
+						free(textBuffer);
+						free(tempBuffer);
+					}
+					quit = 1;					
+				}
+				else{
+					int result_d = tinyfd_messageBox(
+						"",      // Title of the message box
+						"Do you want to save progress before closing?", // The message
+						"yesno",      // Type of dialog: yes/no, ok/cancel, etc.
+						"question",   // Icon type (question, info, warning, error)
+						0             // Default button (0 means no default button)
+					);
+					if(result_d == 1){
+						goto save_progress;
+					}
+					else if(result_d = 2){
+						goto close_without_saving;
+					}
+				}								
 			}
 			
 			new_drawer_flag_clicked = false;
@@ -1986,6 +2272,4 @@ void showNotification(SDL_Renderer *renderer, TTF_Font *font, const char *messag
 	// Free resources
 	SDL_FreeSurface(textSurface);
 	SDL_DestroyTexture(textTexture);
-
-    // Delay to display the notification for the specified duration (in milliseconds)
 }
