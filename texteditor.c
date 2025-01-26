@@ -36,6 +36,8 @@ SDL_Rect scrollbar = {0,0,0,0};
 SDL_Rect fileItem_DROP_DOWN = {0,0,0,0};
 SDL_Rect themeItem_DROP_DOWN = {0,0,0,0};
 
+SDL_Rect textRect;
+
 // Scrollbar variables
 bool scrollbar_flag = false;
 int scroll_y_pos;
@@ -52,6 +54,10 @@ bool isMouseOver(SDL_Rect rect, int mouseX, int mouseY) {
            mouseY >= rect.y && mouseY <= rect.y + rect.h;
 }
 
+bool isClickedOn(SDL_Rect rect, int mouseX, int mouseY){
+    return mouseX >= rect.x && mouseX <= rect.x + rect.w &&
+           mouseY >= rect.y && mouseY <= rect.y + rect.h;	
+}
 
 // Check if the pressed key is alphanumeric or a special character
 int is_alnum_or_special(SDL_Keycode key) {
@@ -143,6 +149,12 @@ bool save_drawer_flag = false;
 bool saveas_drawer_flag = false;
 bool exit_drawer_flag = false;
 
+bool new_drawer_flag_clicked = false;
+bool open_drawer_flag_clicked = false;
+bool save_drawer_flag_clicked = false;
+bool saveas_drawer_flag_clicked = false;
+bool exit_drawer_flag_clicked = false;
+
 bool theme_drawer_forest_flag = false;
 bool theme_drawer_mountain_flag = false;
 bool theme_drawer_bubblegum_flag = false;
@@ -150,8 +162,15 @@ bool theme_drawer_wood_flag = false;
 bool theme_drawer_tiles_flag = false;
 bool theme_drawer_obsidian_flag = false;
 
-bool mouse_clicked_flag = false;
+bool theme_drawer_forest_flag_clicked = false;
+bool theme_drawer_mountain_flag_clicked = false;
+bool theme_drawer_bubblegum_flag_clicked = false;
+bool theme_drawer_wood_flag_clicked = false;
+bool theme_drawer_tiles_flag_clicked = false;
+bool theme_drawer_obsidian_flag_clicked = false;
 
+
+bool mouse_clicked_flag = false;
 
 // Temporary flag for the shift operation
 int temp_flag;
@@ -292,7 +311,7 @@ void draw_file_dropdown(){
 	
 	
 	
-	SDL_Rect textRect;
+//	SDL_Rect textRect;
 	int height_one_above = fileItem_DROP_DOWN.y;
 
 	// Render the dropdown background
@@ -341,7 +360,9 @@ void draw_file_dropdown(){
 			
 			SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
 		}
-		else SDL_SetRenderDrawColor(renderer, 255, 255, 255, 50);  // Set line color (black)
+		else {
+			SDL_SetRenderDrawColor(renderer, 255, 255, 255, 50);
+			}  // Set line color (black)
 		
 		
 		SDL_RenderDrawLine(renderer,
@@ -667,8 +688,22 @@ int main(int argc, char* argv[]) {
 				mouseY = e.button.y;
 				
 //				*x = mouseX; 
-//				*y = mouseY;
+//				*y = mouseY;							
+								
+				if(new_drawer_flag)new_drawer_flag_clicked = true; 
+				else if(open_drawer_flag)open_drawer_flag_clicked = true;
+				else if(save_drawer_flag)save_drawer_flag_clicked = true;
+				else if(saveas_drawer_flag)saveas_drawer_flag_clicked = true;
+				else if(exit_drawer_flag)exit_drawer_flag_clicked = true;
 				
+				if(theme_drawer_forest_flag)theme_drawer_forest_flag_clicked = true;
+				else if(theme_drawer_mountain_flag)theme_drawer_mountain_flag_clicked = true;
+				else if(theme_drawer_bubblegum_flag)theme_drawer_bubblegum_flag_clicked = true;
+				else if(theme_drawer_wood_flag)theme_drawer_wood_flag_clicked = true;
+				else if(theme_drawer_tiles_flag)theme_drawer_tiles_flag_clicked = true;
+				else if(theme_drawer_obsidian_flag)theme_drawer_obsidian_flag_clicked = true;
+
+
 				if(highlight_flag)
 					highlight_flag = 0;
 				
@@ -676,7 +711,6 @@ int main(int argc, char* argv[]) {
 				
 				if(e.button.button == SDL_BUTTON_LEFT){
 				// Check if the click occurred within the clickable region
-					mouse_clicked_flag = true;
 					
 					if(mouseY > 25){
 						current_cursor_line = (mouseY - 25)/TTF_FontHeight(font);
@@ -698,7 +732,7 @@ int main(int argc, char* argv[]) {
 						
 						if(total_lines == 0)
 							last_line = 0;
-						printf("\n %d", last_line);
+						//printf("\n %d", last_line);
 						
 						if(current_cursor_line <= total_lines){
 							if(current_cursor_line == total_lines && bufferIndex - last_line < current_cursor_char){
@@ -755,8 +789,6 @@ int main(int argc, char* argv[]) {
 						}
 						else{
 							jump_here_one:
-								printf("HERE");
-
 								memmove(&textBuffer[cursor], &textBuffer[cursor+1], bufferIndex - cursor + 1);
 								cursor = bufferIndex;
 						}
@@ -764,15 +796,42 @@ int main(int argc, char* argv[]) {
 					
 										
 					if ((isMouseOver(fileItem, mouseX, mouseY) && file_item_drop_down_flag == false)) file_item_drop_down_flag = true;
+					else if ((isMouseOver(fileItem, mouseX, mouseY) && file_item_drop_down_flag == true)) file_item_drop_down_flag = false;
 					
-					else file_item_drop_down_flag = false;						
+					//if ((!isMouseOver(fileItem, mouseX, mouseY) && file_item_drop_down_flag == true)) file_item_drop_down_flag = false;
+
+					//else file_item_drop_down_flag = false;						
 					
 					if ((isMouseOver(themeItem, mouseX, mouseY) && themes_item_drop_down_flag == false)) themes_item_drop_down_flag = true;
-					else themes_item_drop_down_flag = false;	
+					else if ((isMouseOver(themeItem, mouseX, mouseY) && themes_item_drop_down_flag == true)) themes_item_drop_down_flag = false;
+					
+					//if ((!isMouseOver(themeItem, mouseX, mouseY) && themes_item_drop_down_flag == true)) themes_item_drop_down_flag = false;
+
+					//else themes_item_drop_down_flag = false;	
 					
 					if (isMouseOver(scrollbar, mouseX, mouseY)) scrollbar_flag = true;
 					else scrollbar_flag = false;
 				}
+				
+				if(file_item_drop_down_flag && !isMouseOver(fileItem_DROP_DOWN, mouseX, mouseY)){
+					new_drawer_flag_clicked = false;
+					open_drawer_flag_clicked = false;
+					save_drawer_flag_clicked = false;
+					saveas_drawer_flag_clicked = false;
+					exit_drawer_flag_clicked = false;
+				}
+				
+				if(themes_item_drop_down_flag && !isMouseOver(themeItem_DROP_DOWN, mouseX, mouseY)){
+					theme_drawer_forest_flag_clicked = false;
+					theme_drawer_mountain_flag_clicked = false;
+					theme_drawer_bubblegum_flag_clicked = false;
+					theme_drawer_wood_flag_clicked = false;
+					theme_drawer_tiles_flag_clicked = false;
+					theme_drawer_obsidian_flag_clicked = false;
+				}
+
+
+								
 			} else if(e.type == SDL_MOUSEMOTION){
 				mouseX = e.button.x;
 				mouseY = e.button.y;
@@ -810,7 +869,7 @@ int main(int argc, char* argv[]) {
 								if(total_lines == 0)
 									last_line = 0;
 
-								printf("\n %d, %d", total_lines+1, current_cursor_line+1);
+								//printf("\n %d, %d", total_lines+1, current_cursor_line+1);
 								
 								if(current_cursor_line <= total_lines){
 									if(current_cursor_line == total_lines && bufferIndex - last_line < current_cursor_char){
@@ -850,7 +909,7 @@ int main(int argc, char* argv[]) {
 										//printf("\n %d, %d", current_cursor_line, cursor_line);
 
 										while(cursor_line > current_cursor_line){
-											printf("\n %d", cursor_line);
+											//printf("\n %d", cursor_line);
 											while(textBuffer[cursor+1] != '\n'){
 												swap(&textBuffer[cursor], &textBuffer[cursor-1]);
 												cursor--;
@@ -870,15 +929,7 @@ int main(int argc, char* argv[]) {
 										memmove(&textBuffer[cursor], &textBuffer[cursor+1], bufferIndex - cursor + 1);
 										cursor = bufferIndex;
 								}
-							}
-							
-												
-							if (isMouseOver(fileItem, mouseX, mouseY) && file_item_drop_down_flag == false) file_item_drop_down_flag = true;
-							else file_item_drop_down_flag = false;						
-							
-							if (isMouseOver(themeItem, mouseX, mouseY) && themes_item_drop_down_flag == false) themes_item_drop_down_flag = true;
-							else themes_item_drop_down_flag = false;	
-											
+							}											
 					}
 					
 					temp_flag = 1;
@@ -905,7 +956,7 @@ int main(int argc, char* argv[]) {
 			} else if(e.type == SDL_MOUSEBUTTONUP){
 				isDragging = false; 
 				scrollbar_flag = false;
-				mouse_clicked_flag = false;
+				//mouse_clicked_flag = false;
 				
 			} else if (e.type == SDL_MOUSEWHEEL){
 
@@ -1027,7 +1078,7 @@ int main(int argc, char* argv[]) {
 ***/
                 } else if (e.key.keysym.sym == SDLK_ESCAPE) { // Note : Move cursor to the end of the buffer and change it to null before saving the file 
 					if(argc == 2){
-						printf("\n %d",bufferIndex);
+						//printf("\n %d",bufferIndex);
 
 						ftruncate(fileno(file), 0);
 						rewind(file);
@@ -1050,7 +1101,7 @@ int main(int argc, char* argv[]) {
 					quit = 1;
                 } else if (e.key.keysym.sym == SDLK_LEFT && cursor > 0) {
 					if(highlight_flag == 1 && (mod & (KMOD_SHIFT | KMOD_CTRL | KMOD_ALT | KMOD_GUI)) == 0 && cursor >= highlight_end){
-						printf("%d, %d", highlight_start, highlight_end);
+						//printf("%d, %d", highlight_start, highlight_end);
 						memmove(&textBuffer[highlight_start+1], &textBuffer[highlight_start], (highlight_end - highlight_start)*sizeof(char));
 						cursor = highlight_start;							
 					}						
@@ -1178,7 +1229,7 @@ int main(int argc, char* argv[]) {
 								memmove(&textBuffer[cursor],&textBuffer[cursor+1], bufferIndex - cursor);
 								cursor = bufferIndex;
 									
-								printf("Here");
+								//printf("Here");
 								ftruncate(fileno(file), 0);
 								rewind(file);
 								int result = fprintf(file, "%.*s", bufferIndex, textBuffer);
@@ -1582,62 +1633,86 @@ int main(int argc, char* argv[]) {
 		}
 		
 		if(file_item_drop_down_flag == true){
-			draw_file_dropdown();
+			draw_file_dropdown();				
 			
-			if(new_drawer_flag && mouse_clicked_flag){
-				printf("New Drawer Selected!");
+			if(new_drawer_flag_clicked){
+				printf("\n New Drawer Selected!");
 				new_drawer_flag = false;
+				file_item_drop_down_flag = false;
 			}
-			else if(open_drawer_flag && mouse_clicked_flag){
-				printf("Open Drawer Selected!");
+			else if(open_drawer_flag_clicked){
+				printf("\n Open Drawer Selected!");
 				open_drawer_flag = false;
+				file_item_drop_down_flag = false;
 			}
-			else if(save_drawer_flag && mouse_clicked_flag){
-				printf("Save Drawer Selected!");
+			else if(save_drawer_flag_clicked){
+				printf("\n Save Drawer Selected!");
 				save_drawer_flag = false;
+				file_item_drop_down_flag = false;
 			}
-			else if(saveas_drawer_flag && mouse_clicked_flag){
-				printf("Save as Drawer Selected!");
+			else if(saveas_drawer_flag_clicked){
+				printf("\n Save as Drawer Selected!");
 				saveas_drawer_flag = false;
+				file_item_drop_down_flag = false;
 			}
-			else if(exit_drawer_flag && mouse_clicked_flag){
-				printf("Exit Drawer Selected!");
+			else if(exit_drawer_flag_clicked){
+				printf("\n Exit Drawer Selected!");
 				exit_drawer_flag = false;
+				file_item_drop_down_flag = false;
 			}
-		}else{
-			file_item_drop_down_flag == false;
+			
+			new_drawer_flag_clicked = false;
+			open_drawer_flag_clicked = false;
+			save_drawer_flag_clicked = false;
+			saveas_drawer_flag_clicked = false;
+			exit_drawer_flag_clicked = false;
 		}
 
 		if(themes_item_drop_down_flag == true){
 			draw_themes_dropddown();
 			
-			if(theme_drawer_forest_flag && mouse_clicked_flag){
-				printf("Theme Forest Drawer Selected!");
+			if(theme_drawer_forest_flag_clicked){
+				printf("\n Forest Drawer Selected!");
 				theme_drawer_forest_flag = false;
+				themes_item_drop_down_flag = false;
 			}
-			else if(theme_drawer_mountain_flag && mouse_clicked_flag){
-				printf("Theme Mountain Drawer Selected!");
+			else if(theme_drawer_mountain_flag_clicked){
+				printf("\n Mountain Drawer Selected!");
 				theme_drawer_mountain_flag = false;
+				themes_item_drop_down_flag = false; 
 			}
-			else if(theme_drawer_bubblegum_flag && mouse_clicked_flag){
-				printf("Theme Bubblegum Drawer Selected!");
+			else if(theme_drawer_bubblegum_flag_clicked){
+				printf("\n Bubblegum Drawer Selected!");
 				theme_drawer_bubblegum_flag = false;
+				themes_item_drop_down_flag = false;
 			}
-			else if(theme_drawer_wood_flag && mouse_clicked_flag){
-				printf("Theme wood Drawer Selected!");
+			else if(theme_drawer_wood_flag_clicked){
+				printf("\n Wood Drawer Selected!");
 				theme_drawer_wood_flag = false;
+				themes_item_drop_down_flag = false;
 			}
-			else if(theme_drawer_tiles_flag && mouse_clicked_flag){
-				printf("Theme tiles Drawer Selected!");
+			else if(theme_drawer_tiles_flag_clicked){
+				printf("\n Tiles Drawer Selected!");
 				theme_drawer_tiles_flag = false;
+				themes_item_drop_down_flag = false;
 			}
-			else if(theme_drawer_obsidian_flag && mouse_clicked_flag){
-				printf("Theme obsidian Drawer Selected!");
+			else if(theme_drawer_obsidian_flag_clicked){
+				printf("\n Obsidian Drawer Selected!");
 				theme_drawer_obsidian_flag = false;
+				themes_item_drop_down_flag = false;
 			}
-		}else{
-			themes_item_drop_down_flag = false;
+			
+			theme_drawer_forest_flag_clicked = false;
+			theme_drawer_mountain_flag_clicked = false;
+			theme_drawer_bubblegum_flag_clicked = false;
+			theme_drawer_wood_flag_clicked = false;
+			theme_drawer_tiles_flag_clicked = false;
+			theme_drawer_obsidian_flag_clicked = false;
 		}
+		
+		// To see if a click event has occured on any of the drawers 
+		
+		
 		
 		line_number = tokenCnt;
 //		printf("%d\n", line_number);
