@@ -17,6 +17,8 @@
 #define GROWTH_FACTOR 2
 
 // Color variables for themes
+
+/*** ORIGINAL THEME
 SDL_Color background_color = {0,0,0,250};
 SDL_Color highlightColor = {33, 150, 243, 0.35*255}; //{};
 
@@ -38,6 +40,176 @@ SDL_Color horizontal_line_below_text_in_menu_color_bold = {250,250,250,250};
 
 SDL_Color notification_background_color = {150,150,150,50};
 SDL_Color notification_text_color = {250,250,250,250};
+***/ 
+
+int theme = 26; 
+
+// Color variables for themes
+SDL_Color background_color;
+SDL_Color highlightColor;
+
+SDL_Color text_color;
+SDL_Color drawertext_color;
+
+SDL_Color menu_bar_color;
+SDL_Color scroll_bar_color;
+SDL_Color text_select_color;
+
+SDL_Color dropdown_color;
+
+SDL_Color menubar_item_font_color;
+SDL_Color menu_bar_item_color;
+SDL_Color cursor_color;
+
+SDL_Color horizontal_line_below_text_in_menu_color;
+SDL_Color horizontal_line_below_text_in_menu_color_bold;
+
+SDL_Color notification_background_color;
+SDL_Color notification_text_color;
+
+
+void theme_tiles(){
+background_color = (SDL_Color){240, 240, 240, 250}; // Light cool gray
+highlightColor = (SDL_Color){180, 180, 190, 90}; // Soft stone gray
+text_color = (SDL_Color){30, 30, 40, 255}; // Deep charcoal
+drawertext_color = (SDL_Color){50, 50, 60, 250}; // Dark gray
+menu_bar_color = (SDL_Color){220, 220, 230, 255}; // Pale cool gray
+scroll_bar_color = (SDL_Color){160, 160, 170, 255}; // Medium stone gray
+text_select_color = (SDL_Color){200, 200, 210, 255}; // Light slate gray
+dropdown_color = (SDL_Color){250, 250, 255, 255}; // Ultra-light gray
+menubar_item_font_color = (SDL_Color){20, 20, 30, 255}; // Near-black
+menu_bar_item_color = (SDL_Color){230, 230, 240, 255}; // Soft gray
+cursor_color = (SDL_Color){170, 170, 180, 100}; // Translucent stone gray
+horizontal_line_below_text_in_menu_color = (SDL_Color){190, 190, 200, 50}; // Pale gray
+horizontal_line_below_text_in_menu_color_bold = (SDL_Color){170, 170, 180, 250}; // Medium gray
+notification_background_color = (SDL_Color){200, 200, 210, 150}; // Visible gray
+notification_text_color = (SDL_Color){20, 20, 30, 250}; // Near-black
+}
+
+void theme_wood(){
+background_color = (SDL_Color){45, 35, 25, 250}; // Deep rich brown
+highlightColor = (SDL_Color){120, 90, 60, 90}; // Soft wood grain brown
+text_color = (SDL_Color){240, 230, 210, 255}; // Warm cream
+drawertext_color = (SDL_Color){220, 210, 190, 250}; // Light beige
+menu_bar_color = (SDL_Color){35, 25, 20, 255}; // Dark espresso brown
+scroll_bar_color = (SDL_Color){100, 70, 50, 255}; // Warm cedar brown
+text_select_color = (SDL_Color){80, 60, 40, 255}; // Dark wood tone
+dropdown_color = (SDL_Color){30, 20, 15, 255}; // Almost black brown
+menubar_item_font_color = (SDL_Color){250, 240, 220, 255}; // Warm ivory
+menu_bar_item_color = (SDL_Color){25, 20, 15, 255}; // Very dark brown
+cursor_color = (SDL_Color){110, 80, 60, 100}; // Translucent wood brown
+horizontal_line_below_text_in_menu_color = (SDL_Color){90, 70, 50, 50}; // Soft wood grain
+horizontal_line_below_text_in_menu_color_bold = (SDL_Color){120, 90, 70, 250}; // Rich wood tone
+notification_background_color = (SDL_Color){70, 50, 40, 150}; // Deep brown
+notification_text_color = (SDL_Color){240, 230, 210, 250}; // Warm cream		
+}
+
+
+void theme_mountain(){
+background_color = (SDL_Color){240, 248, 255, 250}; // Bright, pure icy white
+highlightColor = (SDL_Color){135, 206, 235, 90}; // Soft sky blue with transparency
+text_color = (SDL_Color){30, 30, 50, 255}; // Deep navy for contrast
+drawertext_color = (SDL_Color){50, 50, 70, 250}; // Dark slate gray
+menu_bar_color = (SDL_Color){200, 230, 255, 255}; // Pale ice blue
+scroll_bar_color = (SDL_Color){100, 170, 220, 255}; // Bright winter blue
+text_select_color = (SDL_Color){150, 200, 230, 255}; // Soft ice blue
+dropdown_color = (SDL_Color){230, 240, 255, 255}; // Very light blue-white
+menubar_item_font_color = (SDL_Color){20, 20, 40, 255}; // Near-black
+menu_bar_item_color = (SDL_Color){210, 230, 255, 255}; // Pale ice blue
+cursor_color = (SDL_Color){100, 180, 220, 100}; // Translucent bright blue
+horizontal_line_below_text_in_menu_color = (SDL_Color){180, 210, 240, 50}; // Pale blue
+horizontal_line_below_text_in_menu_color_bold = (SDL_Color){150, 190, 230, 250}; // Bright ice blue
+notification_background_color = (SDL_Color){170, 210, 240, 150}; // Vibrant ice blue
+notification_text_color = (SDL_Color){20, 20, 40, 250}; // Near-black
+}
+
+void theme_bubblegum(){
+background_color = (SDL_Color){255, 200, 230, 250}; // Soft pastel pink
+highlightColor = (SDL_Color){255, 150, 200, 90}; // Translucent bright pink
+text_color = (SDL_Color){30, 30, 30, 255}; // Near-black for contrast
+drawertext_color = (SDL_Color){50, 50, 50, 250}; // Dark gray
+menu_bar_color = (SDL_Color){255, 170, 210, 255}; // Bright pink
+scroll_bar_color = (SDL_Color){255, 120, 180, 255}; // Vibrant pink
+text_select_color = (SDL_Color){255, 100, 160, 255}; // Saturated pink
+dropdown_color = (SDL_Color){255, 230, 240, 255}; // Very light pink
+menubar_item_font_color = (SDL_Color){20, 20, 20, 255}; // Almost black
+menu_bar_item_color = (SDL_Color){255, 190, 220, 255}; // Soft pink
+cursor_color = (SDL_Color){255, 140, 190, 100}; // Translucent bright pink
+horizontal_line_below_text_in_menu_color = (SDL_Color){255, 200, 230, 50}; // Pale pink
+horizontal_line_below_text_in_menu_color_bold = (SDL_Color){255, 170, 210, 250}; // Bold pink
+notification_background_color = (SDL_Color){255, 220, 240, 50}; // Very light, translucent pink
+notification_background_color = (SDL_Color){255, 180, 210, 150}; // Near-black
+}
+
+void theme_original(){
+background_color = (SDL_Color){0,0,0,250};
+highlightColor = (SDL_Color){33, 150, 243, 0.35*255}; //{};
+
+text_color = (SDL_Color){255,255,255,255};
+drawertext_color = (SDL_Color){250,250,250,250};
+
+menu_bar_color = (SDL_Color){27, 40, 48, 255};
+scroll_bar_color = (SDL_Color){0, 150, 150, 255};
+text_select_color = (SDL_Color){80,80,80,255	};
+
+dropdown_color = (SDL_Color){3, 20, 31, 255};
+
+menubar_item_font_color = (SDL_Color){255, 255, 255, 255};
+menu_bar_item_color = (SDL_Color){3, 20, 31, 255};
+cursor_color = (SDL_Color){0, 150, 150, 100};
+
+horizontal_line_below_text_in_menu_color = (SDL_Color){250,250,250,50};
+horizontal_line_below_text_in_menu_color_bold = (SDL_Color){250,250,250,250};
+
+notification_background_color = (SDL_Color){150,150,150,50};
+notification_text_color = (SDL_Color){250,250,250,250};	
+}
+
+// Obsidian/Original Theme
+void theme_obsidian(){
+background_color = (SDL_Color){12, 12, 12, 255};           // Deep black with a hint of gray
+highlightColor = (SDL_Color){76, 76, 102, 180};           // Subtle blue-gray with slight transparency
+
+text_color = (SDL_Color){220, 220, 220, 255};             // Light gray for good readability
+drawertext_color = (SDL_Color){200, 200, 200, 255};       // Slightly darker gray for drawer text
+
+menu_bar_color = (SDL_Color){20, 20, 20, 255};            // Dark gray for the menu bar
+scroll_bar_color = (SDL_Color){45, 45, 45, 255};          // Medium gray for the scrollbar
+text_select_color = (SDL_Color){100, 100, 140, 100};      // Soft purple-gray for text selection
+
+dropdown_color = (SDL_Color){25, 25, 30, 255};            // Near-black with a hint of blue for dropdowns
+
+menubar_item_font_color = (SDL_Color){220, 220, 220, 255}; // Same light gray as text for menu items
+menu_bar_item_color = (SDL_Color){30, 30, 35, 255};        // Slightly lighter gray than the menu bar
+cursor_color = (SDL_Color){76, 76, 102, 200};              // Blue-gray with transparency for the cursor
+
+horizontal_line_below_text_in_menu_color = (SDL_Color){76, 76, 102, 120};       // Faint blue-gray line
+horizontal_line_below_text_in_menu_color_bold = (SDL_Color){100, 100, 140, 255}; // Bold purple-gray line
+
+notification_background_color = (SDL_Color){35, 35, 40, 200};  // Subtle gray-blue background with transparency
+notification_text_color = (SDL_Color){230, 230, 230, 255};     // Very light gray for visibility
+}
+
+// Forest Theme
+void theme_forest(){
+background_color = (SDL_Color){15, 33, 25, 255};  // Deep forest green
+highlightColor = (SDL_Color){76, 175, 80, 128};  // Soft moss green with transparency
+text_color = (SDL_Color){240, 245, 235, 255};    // Pale, almost white green
+drawertext_color = (SDL_Color){200, 220, 200, 255}; // Light sage green
+menu_bar_color = (SDL_Color){25, 45, 35, 255};   // Dark forest green
+scroll_bar_color = (SDL_Color){50, 120, 90, 255}; // Rich green
+text_select_color = (SDL_Color){100, 180, 130, 150}; // Transparent green highlight
+dropdown_color = (SDL_Color){20, 40, 30, 255};   // Very dark forest green
+menubar_item_font_color = (SDL_Color){230, 240, 225, 255}; // Pale green-white
+menu_bar_item_color = (SDL_Color){30, 50, 40, 255}; // Dark green
+cursor_color = (SDL_Color){50, 200, 120, 100};   // Bright, transparent green
+horizontal_line_below_text_in_menu_color = (SDL_Color){100, 150, 120, 50}; // Muted forest green
+horizontal_line_below_text_in_menu_color_bold = (SDL_Color){150, 200, 160, 250}; // Brighter forest green
+notification_background_color = (SDL_Color){40, 70, 50, 50}; // Very dark, transparent forest green
+notification_text_color = (SDL_Color){220, 235, 215, 250}; // Pale green-white
+}
+
+
 
 // Helper Functions
 // Show notification 
@@ -543,6 +715,7 @@ void draw_themes_dropddown(){
 }
 
 int main(int argc, char* argv[]) {
+	
 	size_t buffer_size = INITIAL_SIZE;
     char* textBuffer = (char*)malloc(buffer_size); // Buffer to store user input
 	char* tempBuffer = (char*)malloc(buffer_size);
@@ -642,7 +815,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    SDL_Color textColor = {text_color.r, text_color.g, text_color.b, text_color.a}; // Black color
+    SDL_SetRenderDrawColor(renderer, text_color.r, text_color.g, text_color.b, text_color.a); // Black color
     SDL_StartTextInput();
 
 	Uint32 cursorBlinkTime = SDL_GetTicks(); // Cursor Blink time 
@@ -663,6 +836,17 @@ int main(int argc, char* argv[]) {
 
 
     while (!quit) {
+		switch(theme){
+			case 1: theme_forest();break;
+			case 2:	theme_mountain();break;
+			case 3:	theme_bubblegum();break;
+			case 4: theme_wood();break;
+			case 5: theme_tiles();break;
+			case 6: theme_obsidian();break;
+			default: 
+				theme_original();
+				break;
+		}
 
         SDL_Event e;
 		
@@ -1579,7 +1763,7 @@ int main(int argc, char* argv[]) {
 			char* textToRender = strlen(token) == 0 ? " " : token;
 			
 
-			SDL_Surface* textSurface = TTF_RenderText_Blended(font, textToRender, textColor);
+			SDL_Surface* textSurface = TTF_RenderText_Blended(font, textToRender, text_color);
 			if (textSurface) {
 				SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
 				if (textTexture) {
@@ -1693,6 +1877,7 @@ int main(int argc, char* argv[]) {
 				printf("\n Forest Drawer Selected!");
 				theme_drawer_forest_flag = false;
 				themes_item_drop_down_flag = false;
+				theme = 1;
 				//background_color = ;
 				//highlight_color = ;
 				//text_color = ;
@@ -1704,26 +1889,31 @@ int main(int argc, char* argv[]) {
 				printf("\n Mountain Drawer Selected!");
 				theme_drawer_mountain_flag = false;
 				themes_item_drop_down_flag = false; 
+				theme = 2;
 			}
 			else if(theme_drawer_bubblegum_flag_clicked){
 				printf("\n Bubblegum Drawer Selected!");
 				theme_drawer_bubblegum_flag = false;
 				themes_item_drop_down_flag = false;
+				theme = 3;
 			}
 			else if(theme_drawer_wood_flag_clicked){
 				printf("\n Wood Drawer Selected!");
 				theme_drawer_wood_flag = false;
 				themes_item_drop_down_flag = false;
+				theme = 4;
 			}
 			else if(theme_drawer_tiles_flag_clicked){
 				printf("\n Tiles Drawer Selected!");
 				theme_drawer_tiles_flag = false;
 				themes_item_drop_down_flag = false;
+				theme = 5;
 			}
 			else if(theme_drawer_obsidian_flag_clicked){
 				printf("\n Obsidian Drawer Selected!");
 				theme_drawer_obsidian_flag = false;
 				themes_item_drop_down_flag = false;
+				theme = 6;
 			}
 			
 			theme_drawer_forest_flag_clicked = false;
