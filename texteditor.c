@@ -234,6 +234,7 @@ SDL_Rect textRect;
 // Scrollbar variables
 bool scrollbar_flag = false;
 int scroll_y_pos;
+int scroll_click_offset = 0;
 
 bool fileSaved = false;
 
@@ -320,9 +321,12 @@ int line_number;
 int cursor_line;
 int current_cursor_line;
 int current_cursor_char;
+int linesToDisplay;
+int total_lines = 0;
 
 // Height of the cursors highlight to render from 
 int cursor_highlight_start;
+int x; 
 
 // Highlight flag
 bool highlight_flag = 0;
@@ -365,6 +369,7 @@ bool theme_drawer_obsidian_flag_clicked = false;
 
 
 bool mouse_clicked_flag = false;
+bool scroll_clicked_flag = false;
 
 // Temporary flag for the shift operation
 int temp_flag;
@@ -404,16 +409,33 @@ TTF_Font* font_menu = NULL;
 
 int current_font_size = 16;  // Starting font size
 
-void drawscroll(int scroll_y){
+void drawscroll(int scroll_y){	
 	SDL_GetWindowSize(window, &netWidth, &netHeight);
-	SDL_SetRenderDrawColor(renderer, scroll_bar_color.r, scroll_bar_color.g, scroll_bar_color.b, scroll_bar_color.a); //0, 150, 150, 255
+	SDL_SetRenderDrawColor(renderer, scroll_bar_color.r, scroll_bar_color.g, scroll_bar_color.b, scroll_bar_color.a); // 0, 150, 150, 255
+
+	// Calculate the scrollbar dimensions
+	int total_content_height = total_lines * TTF_FontHeight(font);
+	scroll_y = SDL_clamp(scroll_y, 0, netHeight);
 	
-	scrollbar.x = netWidth - 25; 
-	scrollbar.y = render_y_off + scroll_y;
-	scrollbar.w = 20; 
-	scrollbar.h = 40;
+	// Ensure scrollbar is drawn only if content exceeds viewport
+	if (total_content_height > netHeight) {
+		scrollbar.x = netWidth - 25; // Position scrollbar on the right
+		scrollbar.w = 20;           // Width of the scrollbar
+		
+		
+		// Calculate scrollbar height based on visible portion
+		scrollbar.h = (netHeight * netHeight) / total_content_height;
+		
+		// Calculate scrollbar position based on scroll offset
+		scrollbar.y = (render_y_off + (scroll_y * netHeight) / total_content_height);
+
+//		printf("\n Scroll Height: %d", scrollbar.h);
+		
+		// Render the scrollbar
+		SDL_RenderFillRect(renderer, &scrollbar);
+	}
 	
-	SDL_RenderFillRect(renderer, &scrollbar);
+	total_lines = 0;
 }
 
 void drawcursor(){
@@ -1043,12 +1065,11 @@ int main(int argc, char* argv[]) {
 
 				// Mouse over file menu condition 
 				if(e.button.button == SDL_BUTTON_LEFT){
-					if(scrollbar_flag){ 					
-						scroll_y_pos = e.motion.y - 40;
+					if(scrollbar_flag){ 											
+						scroll_y_pos =  e.motion.y;
 						if(scroll_y_pos < 0) scroll_y_pos = 0;
 					}
-					if(isDragging == true && (e.motion.x > 0 && e.motion.y > 25)){
-						
+					if(isDragging == true && (e.motion.x > 0 && e.motion.y > 25) && scrollbar_flag == false){
 						
 						//if(e.button.button == SDL_BUTTON_LEFT){
 						// Check if the click occurred within the clickable region
@@ -1127,6 +1148,7 @@ int main(int argc, char* argv[]) {
 												cursor++;
 											} 
 										}
+										x = cursor; 
 									}
 								}
 								else{
@@ -1156,11 +1178,18 @@ int main(int argc, char* argv[]) {
 						highlight_start = highlight_anchor;
 						highlight_end = cursor;
 					}
+				}				
+				else{
+					// To get the end of the current line where the mouse is being hovered over. Need this to calculate the portion of the text buffer to display
+					
+					// Calculate the the current line we are on 
+					// Get to the end of the line and save that position as the position of the mouse cursor 
+					
 				}
-				
 			} else if(e.type == SDL_MOUSEBUTTONUP){
 				isDragging = false; 
-				scrollbar_flag = false;
+				scroll_clicked_flag = false;
+				
 				//mouse_clicked_flag = false;
 				
 			} else if (e.type == SDL_MOUSEWHEEL){
@@ -1696,28 +1725,34 @@ int main(int argc, char* argv[]) {
 		// Update screen
 //		SDL_RenderPresent(renderer);
         
-
+		
 		int temp_cursor = cursor;
 		int temp_cnt = 0;
-
+		
 		// Clear tempBuffer
 		tempBuffer[0] = '\0';
-
-		// Find the starting position for the last 50 lines
-		while (temp_cursor >= 0 && temp_cnt < 50) {
+		
+		// Find the starting position for the lines till the top of the screen with netHeight
+		
+		SDL_GetWindowSize(window, &netWidth, &netHeight);
+		
+		linesToDisplay = netHeight/TTF_FontHeight(font); 
+//		printf("\nCenter Position: %d", mouseX);
+		
+		while (temp_cursor >= 0 && temp_cnt <= linesToDisplay){
 			if (textBuffer[temp_cursor] == '\n') {
 				temp_cnt++;
 			}
 			temp_cursor--;
 		}
-
+		
 		int start_pos = temp_cursor + 1; // Start position for backward lines
-
+		
 		// Reset cursor and counter to find the ending position for the next 50 lines
 		temp_cursor = cursor;
 		temp_cnt = 0;
 
-		while (temp_cursor <= bufferIndex && temp_cnt < 50) {
+		while (temp_cursor <= bufferIndex && temp_cnt <= linesToDisplay) {
 			if (textBuffer[temp_cursor] == '\n') {
 				temp_cnt++;
 			}
@@ -1756,6 +1791,11 @@ int main(int argc, char* argv[]) {
 			if(textBuffer[i] == '\n'){
 				cursor_line++;
 			}
+		}
+		
+		for(int i=0; i<bufferIndex; i++){
+			if(textBuffer[i] == '\n')
+				total_lines++;
 		}
 
 		drawcursor();			
