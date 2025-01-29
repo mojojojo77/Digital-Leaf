@@ -234,7 +234,10 @@ SDL_Rect textRect;
 // Scrollbar variables
 bool scrollbar_flag = false;
 int scroll_y_pos;
-int scroll_click_offset = 0;
+int scroll_offset = 0;
+bool is_scrolling = false;
+
+
 
 bool fileSaved = false;
 
@@ -242,6 +245,8 @@ bool fileSaved = false;
 bool isDragging = false;
 int mouseX; 
 int mouseY;
+int temp_y; 
+
 // Is mouse over a certain region (SDL_Rect)
 bool isMouseOver(SDL_Rect rect, int mouseX, int mouseY) {
 	
@@ -369,7 +374,6 @@ bool theme_drawer_obsidian_flag_clicked = false;
 
 
 bool mouse_clicked_flag = false;
-bool scroll_clicked_flag = false;
 
 // Temporary flag for the shift operation
 int temp_flag;
@@ -409,34 +413,37 @@ TTF_Font* font_menu = NULL;
 
 int current_font_size = 16;  // Starting font size
 
-void drawscroll(int scroll_y){	
-	SDL_GetWindowSize(window, &netWidth, &netHeight);
-	SDL_SetRenderDrawColor(renderer, scroll_bar_color.r, scroll_bar_color.g, scroll_bar_color.b, scroll_bar_color.a); // 0, 150, 150, 255
+void drawscroll(int scroll_y) {
+    SDL_GetWindowSize(window, &netWidth, &netHeight);
+    SDL_SetRenderDrawColor(renderer, scroll_bar_color.r, scroll_bar_color.g, scroll_bar_color.b, scroll_bar_color.a);
+    
+    int total_content_height = total_lines * TTF_FontHeight(font);
+    
+    if (total_content_height > netHeight) {
+        scrollbar.x = netWidth - 25;
+        scrollbar.w = 20;
+        
+        float visible_ratio = (float)netHeight / total_content_height;
+        scrollbar.h = (int)(netHeight * visible_ratio);
+        if (scrollbar.h < 30) scrollbar.h = 30;
+        
+        int max_scrollbar_range = netHeight - scrollbar.h;
+        
+        if (is_scrolling) {
+            scrollbar.y = scroll_y - scroll_offset;
+        }else {
+			//scrollbar.y = scroll_y;
+		}
 
-	// Calculate the scrollbar dimensions
-	int total_content_height = total_lines * TTF_FontHeight(font);
-	scroll_y = SDL_clamp(scroll_y, 0, netHeight);
-	
-	// Ensure scrollbar is drawn only if content exceeds viewport
-	if (total_content_height > netHeight) {
-		scrollbar.x = netWidth - 25; // Position scrollbar on the right
-		scrollbar.w = 20;           // Width of the scrollbar
-		
-		
-		// Calculate scrollbar height based on visible portion
-		scrollbar.h = (netHeight * netHeight) / total_content_height;
-		
-		// Calculate scrollbar position based on scroll offset
-		scrollbar.y = (render_y_off + (scroll_y * netHeight) / total_content_height);
+		if (scrollbar.y > max_scrollbar_range) scrollbar.y = max_scrollbar_range;
+		if (scrollbar.y < 25) scrollbar.y = 25;
 
-//		printf("\n Scroll Height: %d", scrollbar.h);
-		
-		// Render the scrollbar
 		SDL_RenderFillRect(renderer, &scrollbar);
-	}
-	
-	total_lines = 0;
+    }
+    
+    total_lines = 0;
 }
+
 
 void drawcursor(){
 	SDL_SetRenderDrawColor(renderer, cursor_color.r, cursor_color.g, cursor_color.b, cursor_color.a ); // 0, 150, 150, 100
@@ -742,6 +749,7 @@ int main(int argc, char* argv[]) {
 	size_t buffer_size = INITIAL_SIZE;
     char* textBuffer = (char*)malloc(buffer_size); // Buffer to store user input
 	char* tempBuffer = (char*)malloc(buffer_size);
+	int* lineNumbers = (int*)malloc(buffer_size);
 
 	if(textBuffer == NULL){
 		perror("Initializing buffer failed!");
@@ -772,6 +780,7 @@ int main(int argc, char* argv[]) {
 				buffer_size *= GROWTH_FACTOR; // Increase buffer size
 				textBuffer = (char*)realloc(textBuffer, buffer_size);
 				tempBuffer = (char*)realloc(tempBuffer, buffer_size);
+				lineNumbers = (int*)realloc(lineNumbers, buffer_size);
 				if (textBuffer == NULL || tempBuffer == NULL) {
 					perror("realloc failed");
 					fclose(file);
@@ -867,7 +876,8 @@ int main(int argc, char* argv[]) {
 			case 5: theme_tiles();break;
 			case 6: theme_obsidian();break;
 			default: 
-				theme_original();
+				theme_mountain();
+				//theme_original();
 				break;
 		}
 
@@ -913,7 +923,7 @@ int main(int argc, char* argv[]) {
 				fileSaved = false;
 				mouseX = e.button.x;
 				mouseY = e.button.y;
-				
+								
 //				*x = mouseX; 
 //				*y = mouseY;							
 								
@@ -934,10 +944,13 @@ int main(int argc, char* argv[]) {
 				if(highlight_flag)
 					highlight_flag = 0;
 				
-				isDragging = true;
 				
 				if(e.button.button == SDL_BUTTON_LEFT){
 				// Check if the click occurred within the clickable region
+					
+//						printf("\n JUMP HEREEEREEEEE!");
+					scroll_offset = mouseY - scrollbar.y;
+					isDragging = true;
 					
 					if(mouseY > 25){
 						current_cursor_line = (mouseY - 25)/TTF_FontHeight(font);
@@ -999,7 +1012,7 @@ int main(int argc, char* argv[]) {
 								//printf("\n %d, %d", current_cursor_line, cursor_line);
 
 								while(cursor_line > current_cursor_line){
-									printf("\n %d", cursor_line);
+									//printf("\n %d", cursor_line);
 									while(textBuffer[cursor+1] != '\n'){
 										swap(&textBuffer[cursor], &textBuffer[cursor-1]);
 										cursor--;
@@ -1036,7 +1049,9 @@ int main(int argc, char* argv[]) {
 
 					//else themes_item_drop_down_flag = false;	
 					
-					if (isMouseOver(scrollbar, mouseX, mouseY)) scrollbar_flag = true;
+					if (isMouseOver(scrollbar, mouseX, mouseY)) {
+						scrollbar_flag = true;
+					}
 					else scrollbar_flag = false;
 				}
 				
@@ -1062,15 +1077,23 @@ int main(int argc, char* argv[]) {
 			} else if(e.type == SDL_MOUSEMOTION){
 				mouseX = e.button.x;
 				mouseY = e.button.y;
-
+				
+				if(scrollbar_flag == true){
+					is_scrolling = true;
+				}
+				
 				// Mouse over file menu condition 
 				if(e.button.button == SDL_BUTTON_LEFT){
-					if(scrollbar_flag){ 											
+					if(scrollbar_flag){
 						scroll_y_pos =  e.motion.y;
-						if(scroll_y_pos < 0) scroll_y_pos = 0;
+						//printf("\n%d",scroll_initial_pos);
+						//printf("\n HEREEEREEEEE!");
+						
+						if(scroll_y_pos < 25) scroll_y_pos = 25;
 					}
 					if(isDragging == true && (e.motion.x > 0 && e.motion.y > 25) && scrollbar_flag == false){
 						
+						is_scrolling = true;
 						//if(e.button.button == SDL_BUTTON_LEFT){
 						// Check if the click occurred within the clickable region
 							if(mouseY > 25){
@@ -1188,9 +1211,9 @@ int main(int argc, char* argv[]) {
 				}
 			} else if(e.type == SDL_MOUSEBUTTONUP){
 				isDragging = false; 
-				scroll_clicked_flag = false;
-				
-				//mouse_clicked_flag = false;
+				is_scrolling = false;
+				scrollbar_flag = false;
+				//scroll_offset = 0; 
 				
 			} else if (e.type == SDL_MOUSEWHEEL){
 
@@ -1238,6 +1261,7 @@ int main(int argc, char* argv[]) {
 					buffer_size = buffer_size * GROWTH_FACTOR;
 					textBuffer = (char*)realloc(textBuffer, buffer_size);
 					tempBuffer = (char*)realloc(tempBuffer, buffer_size);
+					lineNumbers = (int* )realloc(lineNumbers, buffer_size);
 					
 					if (textBuffer == NULL || tempBuffer == NULL) {
 						perror("realloc failed");
@@ -1271,6 +1295,7 @@ int main(int argc, char* argv[]) {
 						// Extra null characters created when the shifting operation has to be compensated by increasing the buffer_size 
 						if(bufferIndex + bufferIndex - highlight_start > buffer_size){
 							textBuffer = (char*) realloc(textBuffer, buffer_size*GROWTH_FACTOR*sizeof(char));
+							lineNumbers = (int*) realloc(lineNumbers, buffer_size* GROWTH_FACTOR*sizeof(int));
 							printf("Buffer size updated: %d", buffer_size);
 						}
 
@@ -1424,7 +1449,7 @@ int main(int argc, char* argv[]) {
 							
 							// Step 4: Move right in the next line while swapping
 							int movedCol = 0;
-							while (movedCol < currentCol && 
+							while (movedCol < currentCol  && 
 								   cursor < bufferIndex - 1 && 
 								   textBuffer[cursor + 1] != '\n') {
 								swap(&textBuffer[cursor], &textBuffer[cursor + 1]);
@@ -1435,7 +1460,7 @@ int main(int argc, char* argv[]) {
 					}
 //					printf("%d\n",cursor);
 				} 
-								
+				
 				if(mod & KMOD_CTRL){
 										
 					if(e.key.keysym.sym == SDLK_s){	
@@ -1521,6 +1546,7 @@ int main(int argc, char* argv[]) {
 							while((bufferIndex + paste_len) > buffer_size){
 								buffer_size = buffer_size * GROWTH_FACTOR;
 								textBuffer = (char*)realloc(textBuffer, buffer_size);
+								lineNumbers = (int*)realloc(lineNumbers, buffer_size);
 	//							tempBuffer = (char*)realloc(tempBuffer, buffer_size);
 
 								if (textBuffer == NULL || tempBuffer == NULL) {
@@ -1724,6 +1750,17 @@ int main(int argc, char* argv[]) {
 		
 		// Update screen
 //		SDL_RenderPresent(renderer);
+		lineNumbers[0] = 0; 
+		int line_cnt = 1;
+		
+		
+		for(int i=1; i<bufferIndex; i++){
+			if(textBuffer[i] == '\n'){
+				lineNumbers[line_cnt] = i;
+				line_cnt++;
+				total_lines++;
+			}
+		}
         
 		
 		int temp_cursor = cursor;
@@ -1736,7 +1773,7 @@ int main(int argc, char* argv[]) {
 		
 		SDL_GetWindowSize(window, &netWidth, &netHeight);
 		
-		linesToDisplay = netHeight/TTF_FontHeight(font); 
+		linesToDisplay = (netHeight/TTF_FontHeight(font))+2; 
 //		printf("\nCenter Position: %d", mouseX);
 		
 		while (temp_cursor >= 0 && temp_cnt <= linesToDisplay){
@@ -1749,8 +1786,15 @@ int main(int argc, char* argv[]) {
 		int start_pos = temp_cursor + 1; // Start position for backward lines
 		
 		// Reset cursor and counter to find the ending position for the next 50 lines
+		
+		// Display Line start 
+		// Virutal cursor line, recaliberated to adjust the center of the screen  
+		// Actual cursor line 
+		// Display line end 		
+		
 		temp_cursor = cursor;
 		temp_cnt = 0;
+
 
 		while (temp_cursor <= bufferIndex && temp_cnt <= linesToDisplay) {
 			if (textBuffer[temp_cursor] == '\n') {
@@ -1770,9 +1814,8 @@ int main(int argc, char* argv[]) {
 			printf("Error: Buffer size exceeded or invalid length.\n");
 		}
 		
-//		printf(tempBuffer);
-        
-//		strcpy(tempBuffer, textBuffer);
+		
+		
         
         // Tokenize and render text based on newline characters
 		char* token;
@@ -1793,11 +1836,6 @@ int main(int argc, char* argv[]) {
 			}
 		}
 		
-		for(int i=0; i<bufferIndex; i++){
-			if(textBuffer[i] == '\n')
-				total_lines++;
-		}
-
 		drawcursor();			
 
 		while ((token = strsep(&str, "\n")) != NULL) {
@@ -1872,6 +1910,7 @@ int main(int argc, char* argv[]) {
 		drawMenuBar();
 		drawThemesBar();
 		drawscroll(scroll_y_pos);
+		
 		if(notificationFlag){
 			showNotification(renderer, font, notificationMessage);
 			if(SDL_GetTicks() - notifStartTime > 3000)
@@ -2045,6 +2084,7 @@ int main(int argc, char* argv[]) {
 						buffer_size *= GROWTH_FACTOR; // Increase buffer size
 						textBuffer = (char*)realloc(textBuffer, buffer_size);
 						tempBuffer = (char*)realloc(tempBuffer, buffer_size);
+						lineNumbers = (int*)realloc(lineNumbers, buffer_size);
 						if (textBuffer == NULL || tempBuffer == NULL) {
 							perror("realloc failed");
 							fclose(file);
