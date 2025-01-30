@@ -1760,7 +1760,7 @@ int main(int argc, char* argv[]) {
 				line_cnt++;
 				total_lines++;
 			}
-		}
+		}		
         
 		
 		int temp_cursor = cursor;
@@ -1773,7 +1773,7 @@ int main(int argc, char* argv[]) {
 		
 		SDL_GetWindowSize(window, &netWidth, &netHeight);
 		
-		linesToDisplay = (netHeight/TTF_FontHeight(font))+2; 
+		linesToDisplay = (netHeight/TTF_FontHeight(font)) - 4; 
 //		printf("\nCenter Position: %d", mouseX);
 		
 		while (temp_cursor >= 0 && temp_cnt <= linesToDisplay){
@@ -1816,6 +1816,8 @@ int main(int argc, char* argv[]) {
 		
 		
 		
+		
+		
         
         // Tokenize and render text based on newline characters
 		char* token;
@@ -1835,6 +1837,50 @@ int main(int argc, char* argv[]) {
 				cursor_line++;
 			}
 		}
+		
+		
+		// Virtual cursor implemented to manage the viewport 
+		
+		int virtual_cursor_line = (netHeight / TTF_FontHeight(font)) / 2;
+
+		// Ensure virtual_cursor_line is within valid bounds
+		if (virtual_cursor_line >= total_lines) {
+			virtual_cursor_line = total_lines - 1;  // Prevent out-of-bounds access
+		}
+		int virtual_cursor = lineNumbers[virtual_cursor_line];
+
+		// Adjust virtual_cursor_line based on cursor_line position
+		if (cursor_line > virtual_cursor_line + linesToDisplay / 2) {
+			virtual_cursor_line = cursor_line - linesToDisplay / 2;
+		} else if (cursor_line < virtual_cursor_line - linesToDisplay / 2) {
+			virtual_cursor_line = cursor_line + linesToDisplay / 2;
+		}
+
+		// Ensure virtual_cursor_line is within valid bounds again after changes
+		if (virtual_cursor_line < 0) {
+			virtual_cursor_line = 0;
+		} else if (virtual_cursor_line >= total_lines) {
+			virtual_cursor_line = total_lines - 1;
+		}
+		virtual_cursor = lineNumbers[virtual_cursor_line];
+
+		// Copy text from the buffer while ensuring valid index ranges
+		int start_line = (virtual_cursor_line - linesToDisplay / 2 > 0) ? virtual_cursor_line - linesToDisplay / 2 : 0;
+		int end_line = (virtual_cursor_line + linesToDisplay / 2 < total_lines) ? virtual_cursor_line + linesToDisplay / 2 : total_lines - 1;
+
+		// Ensure indices are valid before accessing lineNumbers[]
+		if (start_line >= total_lines) {
+			start_line = total_lines - 1;
+		}
+		if (end_line >= total_lines) {
+			end_line = total_lines - 1;
+		}
+
+		strncpy(tempBuffer, textBuffer + lineNumbers[start_line], 
+				lineNumbers[end_line] - lineNumbers[start_line]);
+		
+		
+		
 		
 		drawcursor();			
 
