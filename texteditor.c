@@ -92,6 +92,9 @@ int virtual_cursor_line = 0;
 int viewport_top_line = 0;
 int viewport_bottom_line = 0;
 
+// Global buffer size variable
+int buffer_size = INITIAL_SIZE;
+
 // Function prototypes
 void theme_tiles();
 void theme_wood();
@@ -109,6 +112,7 @@ void draw_themes_dropddown();
 void showNotification(SDL_Renderer *renderer, TTF_Font *font, const char *message);
 void ensure_cursor_visible();
 void update_viewport();
+void manage_buffer_size();
 
 // SDL Clickable regions 
 SDL_Rect fileItem = {0,0,0,0}; 
@@ -166,16 +170,47 @@ void swap(char *a, char *b) {
 
 // String slice function to implement the copy to clipboard 
 char* string_slice(const char* input, size_t start, size_t end) {
-    if (start >= end || start >= strlen(input)) {
+    // Validate input
+    if (!input) {
+        printf("ERROR: Null input to string_slice\n");
+        return NULL;
+    }
+
+    size_t input_len = strlen(input);
+    
+    // Validate and adjust start and end indices
+    if (start >= input_len) {
+        printf("ERROR: Start index %d out of bounds (input length %d)\n", start, input_len);
         return NULL;
     }
     
+    // Adjust end index if it's out of bounds
+    if (end > input_len) {
+        printf("WARNING: Adjusting end index from %d to %d\n", end, input_len);
+        end = input_len;
+    }
+    
+    // Ensure start is less than end
+    if (start >= end) {
+        printf("ERROR: Invalid slice range (start %d, end %d)\n", start, end);
+        return NULL;
+    }
+    
+    // Calculate length and check for extreme sizes
     size_t len = end - start;
+    if (len > 10 * 1024 * 1024) {  // Limit to 10MB
+        printf("ERROR: Slice too large: %d bytes\n", len);
+        return NULL;
+    }
+
+    // Allocate memory with error checking
     char* result = (char*)malloc(len + 1);
     if (!result) {
+        printf("ERROR: Memory allocation failed for %d bytes\n", len + 1);
         return NULL;
     }
     
+    // Safe copy
     strncpy(result, input + start, len);
     result[len] = '\0';
     return result;
@@ -386,7 +421,8 @@ notification_text_color = (SDL_Color){220, 235, 215, 250}; // Pale green-white
 
 int main(int argc, char* argv[]) {
 	
-	size_t buffer_size = INITIAL_SIZE;
+	// Use global buffer_size instead of local declaration
+	buffer_size = INITIAL_SIZE;
     
     // Initialize buffers using calloc for zero-initialization
     textBuffer = (char*)calloc(buffer_size, sizeof(char));
@@ -446,7 +482,7 @@ int main(int argc, char* argv[]) {
 				textBuffer = new_textBuffer;
 				tempBuffer = new_tempBuffer;
 				lineNumbers = new_lineNumbers;
-				printf("Buffer size updated: %zu\n", buffer_size);
+				printf("Buffer size updated: %d\n", buffer_size);
 			}
 		}
 		
@@ -934,21 +970,15 @@ int main(int argc, char* argv[]) {
 					buffer_size = buffer_size * GROWTH_FACTOR;
 					char* new_textBuffer = (char*)realloc(textBuffer, buffer_size);
 					char* new_tempBuffer = (char*)realloc(tempBuffer, buffer_size);
-					int* new_lineNumbers = (int*)realloc(lineNumbers, buffer_size);
-
-					if (new_textBuffer == NULL || new_tempBuffer == NULL || new_lineNumbers == NULL) {
-						perror("Failed to reallocate buffers");
+					if (!new_textBuffer || !new_tempBuffer) {
+						printf("Failed to reallocate buffer\n");
 						free(textBuffer);
 						free(tempBuffer);
-						free(lineNumbers);
 						fclose(file);
 						return 1;
 					}
-
 					textBuffer = new_textBuffer;
 					tempBuffer = new_tempBuffer;
-					lineNumbers = new_lineNumbers;
-					printf("Buffer Updated! Buffer size: %d",buffer_size);					
 				}
 				
 //				highlight_flag = 0;
@@ -960,7 +990,7 @@ int main(int argc, char* argv[]) {
 						// Update cursor and buffer index
 						cursor--;
 						bufferIndex--;
-						
+						manage_buffer_size();
 					}else if(highlight_flag == 1){
 						// If cursor is at the start of the highlighted section, move it to the end of the highlight
 						if(cursor >= highlight_end){
@@ -992,8 +1022,7 @@ int main(int argc, char* argv[]) {
 						memset(&textBuffer[bufferIndex+1], '\0', (bufferIndex - highlight_start));
 						memmove(&textBuffer[highlight_start], &textBuffer[highlight_end], (bufferIndex - highlight_start));
 						bufferIndex = bufferIndex - (highlight_end - highlight_start);
-						
-//						textBuffer = (char*) realloc(textBuffer, bufferIndex*GROWTH_FACTOR*sizeof(char));
+						manage_buffer_size();
 					}
 					
 					temp_flag = 0;
@@ -1407,62 +1436,157 @@ int main(int argc, char* argv[]) {
 //					printf("Control is pressed.\n");
 					if(e.key.keysym.sym == SDLK_c){
 						if(highlight_flag){
+							// Validate highlight range
+							if (highlight_start >= bufferIndex || highlight_end > bufferIndex) {
+								printf("ERROR: Highlight range out of buffer bounds\n");
+								printf("highlight_start: %d, highlight_end: %d, bufferIndex: %d\n", 
+									   highlight_start, highlight_end, bufferIndex);
+								continue;
+							}
+
+							// Calculate slice length and check for extreme cases
+							size_t slice_length = highlight_end - highlight_start;
+							if (slice_length > 1024 * 1024) {  // Limit to 1MB for safety
+								printf("WARNING: Attempting to copy very large text: %d bytes\n", slice_length);
+							}
+
+							// Detailed debug logging
+							printf("Copying: start=%d, end=%d, length=%d, total_lines=%d, virtual_cursor_line=%d, bufferIndex=%d\n", 
+								   highlight_start, highlight_end, slice_length, total_lines, virtual_cursor_line, bufferIndex);
+							
+							// Safe memory allocation and copying
 							char* copied_text = string_slice(textBuffer, highlight_start, highlight_end);
 							if (copied_text) {
-								SDL_SetClipboardText(copied_text);
+								// Verify copied text
+								size_t copied_length = strlen(copied_text);
+								printf("Successfully copied %d bytes\n", copied_length);
+
+								// Use SDL's clipboard with error checking
+								if (SDL_SetClipboardText(copied_text) != 0) {
+									printf("SDL Clipboard Error: %s\n", SDL_GetError());
+								}
 								free(copied_text);
+							} else {
+								printf("Failed to copy text: invalid slice parameters\n");
 							}
 						}
 					} else if(e.key.keysym.sym == SDLK_v){
 						char* copied_text = SDL_GetClipboardText();
 						if (copied_text) {
-							// Clean up the text - remove \r characters
-							char* cleaned_text = malloc(strlen(copied_text) + 1);
-							size_t clean_index = 0;
+							// Debug logging for clipboard content
+							size_t clipboard_len = strlen(copied_text);
+							printf("Paste Debug:\n");
+							printf("  Clipboard text length: %d bytes\n", clipboard_len);
+							printf("  First 100 chars: %.100s\n", copied_text);
 							
-							for (size_t i = 0; i < strlen(copied_text); i++) {
+							// Check for extremely large clipboard content
+							if (clipboard_len > 10 * 1024 * 1024) {  // 10MB limit
+								printf("ERROR: Clipboard content too large (%d bytes)\n", clipboard_len);
+								SDL_free(copied_text);
+								continue;
+							}
+
+							// Clean up the text - remove \r characters
+							char* cleaned_text = malloc(clipboard_len + 1);
+							if (!cleaned_text) {
+								printf("ERROR: Memory allocation failed for cleaned text\n");
+								SDL_free(copied_text);
+								continue;
+							}
+							
+							size_t clean_index = 0;
+							size_t carriage_returns_removed = 0;
+							
+							for (size_t i = 0; i < clipboard_len; i++) {
 								if (copied_text[i] != '\r') {
 									cleaned_text[clean_index++] = copied_text[i];
+								} else {
+									carriage_returns_removed++;
 								}
 							}
 							cleaned_text[clean_index] = '\0';
 							
-							size_t paste_len = strlen(cleaned_text);
+							// Debug logging for cleaned text
+							printf("  Carriage returns removed: %d\n", carriage_returns_removed);
+							printf("  Cleaned text length: %d bytes\n", clean_index);
 							
-							// Ensure buffer has enough space
+							size_t paste_len = clean_index;
+							
+							// Additional debug info about current buffer state
+							printf("  Current buffer state:\n");
+							printf("    bufferIndex: %d\n", bufferIndex);
+							printf("    cursor: %d\n", cursor);
+							printf("    total_lines: %d\n", total_lines);
+							printf("    buffer_size: %d\n", buffer_size);
+
+							// Ensure buffer has enough space with both textBuffer and tempBuffer
 							while ((bufferIndex + paste_len) >= buffer_size) {
-								buffer_size *= GROWTH_FACTOR;
-								textBuffer = (char*)realloc(textBuffer, buffer_size);
-								tempBuffer = (char*)realloc(tempBuffer, buffer_size);
-								if (!textBuffer || !tempBuffer) {
-									printf("Failed to allocate memory for paste\n");
+								// Debug buffer expansion
+								printf("  Expanding buffer:\n");
+								printf("    Current buffer_size: %d\n", buffer_size);
+								printf("    Current bufferIndex: %d\n", bufferIndex);
+								printf("    Paste length: %d\n", paste_len);
+								
+								buffer_size *= 2;
+								
+								// Reallocate only textBuffer
+								char* new_textBuffer = realloc(textBuffer, buffer_size);
+								
+								if (!new_textBuffer) {
+									printf("CRITICAL ERROR: Failed to expand textBuffer\n");
 									free(cleaned_text);
 									SDL_free(copied_text);
 									break;
 								}
+								
+								textBuffer = new_textBuffer;
+								
+								printf("    New buffer_size: %d\n", buffer_size);
 							}
 							
-							// Make space for pasted text
-							memmove(&textBuffer[cursor + paste_len], 
-								   &textBuffer[cursor], 
-								   (bufferIndex - cursor + 1) * sizeof(char));
+							// Debug paste insertion
+							printf("  Paste insertion:\n");
+							printf("    Inserting at cursor: %d\n", cursor);
+							printf("    Shifting remaining text\n");
 							
-							// Insert the pasted text
+							// Shift existing text to make room for pasted content
+							memmove(&textBuffer[cursor + paste_len], &textBuffer[cursor], bufferIndex - cursor);
+							
+							// Copy pasted text
 							memcpy(&textBuffer[cursor], cleaned_text, paste_len);
 							
-							// Update positions
-							cursor += paste_len;
+							// Update buffer indices
 							bufferIndex += paste_len;
+							cursor += paste_len;
 							
+							// Cleanup
 							free(cleaned_text);
 							SDL_free(copied_text);
+							
+							// Trigger viewport update
+							update_viewport();
 						}
 					} else if(e.key.keysym.sym == SDLK_a){
-						highlight_flag = 1;
-						highlight_start = 0;
-						highlight_end = bufferIndex;
-						highlight_anchor = 0;
-						cursor = bufferIndex;
+						// Safety checks for Ctrl+A (Select All)
+						if (bufferIndex > 0 && bufferIndex < buffer_size) {
+							printf("Select All Debug:\n");
+							printf("  bufferIndex: %d\n", bufferIndex);
+							printf("  buffer_size: %d\n", buffer_size);
+							
+							highlight_flag = 1;
+							highlight_start = 0;
+							highlight_end = bufferIndex;
+							highlight_anchor = 0;
+							cursor = bufferIndex;
+						} else {
+							printf("ERROR: Invalid buffer state during Select All\n");
+							printf("  bufferIndex: %d\n", bufferIndex);
+							printf("  buffer_size: %d\n", buffer_size);
+							// Optionally reset buffer or take corrective action
+							bufferIndex = 0;
+							buffer_size = INITIAL_SIZE;
+							highlight_flag = 0;
+						}
 					}
 				}
 				else{ 
@@ -1538,7 +1662,7 @@ int main(int argc, char* argv[]) {
                             memmove(&textBuffer[cursor - 1], &textBuffer[cursor], bufferIndex - cursor + 1);
                             cursor--;
                             bufferIndex--;
-                            ensure_cursor_visible();
+                            manage_buffer_size();
                         }
                         break;
                         
@@ -1546,7 +1670,7 @@ int main(int argc, char* argv[]) {
                         if (cursor < bufferIndex) {
                             memmove(&textBuffer[cursor], &textBuffer[cursor + 1], bufferIndex - cursor);
                             bufferIndex--;
-                            ensure_cursor_visible();
+                            manage_buffer_size();
                         }
                         break;
 
@@ -1656,7 +1780,7 @@ int main(int argc, char* argv[]) {
 
 		// Get window dimensions
 		SDL_GetWindowSize(window, &netWidth, &netHeight);
-		linesToDisplay = (netHeight / TTF_FontHeight(font)) - 4;
+		linesToDisplay = (netHeight - 25) / TTF_FontHeight(font);
 
 		// Clear tempBuffer
 		tempBuffer[0] = '\0';
@@ -1689,9 +1813,9 @@ int main(int argc, char* argv[]) {
 			int visible_lines_below = linesToDisplay - visible_lines_above;
 
 			// Only move virtual cursor if actual cursor goes too far from it
-			if (cursor_line > virtual_cursor_line + visible_lines_below - 1) {
-				virtual_cursor_line = cursor_line - visible_lines_below + 1;
-			} else if (cursor_line < virtual_cursor_line - visible_lines_above) {
+			if (cursor_line > virtual_cursor_line + visible_lines_below - 2) {
+				virtual_cursor_line = cursor_line - visible_lines_below + 2;
+			} else if (cursor_line < virtual_cursor_line - visible_lines_above ) {
 				virtual_cursor_line = cursor_line + visible_lines_above;
 			}
 
@@ -1719,15 +1843,33 @@ int main(int argc, char* argv[]) {
 			virtual_cursor_line = cursor_line;
 		}
 
+
 		// Copy visible text to tempBuffer
 		int length = end_pos - start_pos;
 		if (length > 0 && length < buffer_size) {
 			strncpy(tempBuffer, textBuffer + start_pos, length);
-			tempBuffer[length] = '\0';
-		} else {
-			tempBuffer[0] = '\0';
+			tempBuffer[length+1] = '\0';
+		} 
+		
+		if(cursor >= end_pos){
+//			printf("\n HERE");
+			cursor = end_pos - 1;
+			tempBuffer[end_pos] = '\0';
 		}
 		
+		if(end_pos == 0){
+			cursor = end_pos;
+			tempBuffer[end_pos + 1] = '\0';
+			printf("%c",tempBuffer[0]);
+		}
+			
+/***		
+		printf("\n Start: %d", start_pos);
+		printf("\n End: %d", end_pos);
+		printf("\n Cursor: %d", cursor);
+		printf("\n Virtual Cursor: %d", cursor);		
+		printf("\n Length: %d", length);
+***/		
 		// Tokenize and render text based on newline characters
 		char* token;
 		char* str = tempBuffer; 
@@ -2375,35 +2517,47 @@ void drawscroll(int scroll_y) {
             total_lines++;
         }
     }
-    
+//    printf("%d",total_lines);
     if (total_lines * TTF_FontHeight(font) > netHeight) {
         scrollbar.x = netWidth - 25;
         scrollbar.w = 20;
         
-        float visible_ratio = (float)netHeight / (total_lines * TTF_FontHeight(font));
-        scrollbar.h = (int)(netHeight * visible_ratio);
+        // Calculate scrollbar height based on visible lines ratio
+        float visible_ratio = (float)linesToDisplay / total_lines;
+        scrollbar.h = (int)((netHeight - 50) * visible_ratio);  // Subtract 50 to account for menu bar and bottom margin
         if (scrollbar.h < 30) scrollbar.h = 30;
         
-        int max_scrollbar_range = netHeight - scrollbar.h;
+        // Calculate scrollbar vertical position based on virtual cursor line
+        float scroll_progress = (float)(virtual_cursor_line - (linesToDisplay / 2)) / (total_lines - linesToDisplay);
         
-        if (is_scrolling) {
-            scrollbar.y = scroll_y - scroll_offset;
-        }
-
-        if (scrollbar.y > max_scrollbar_range) scrollbar.y = max_scrollbar_range;
-        if (scrollbar.y < 25) scrollbar.y = 25;
+        // Ensure scroll_progress is between 0 and 1
+        scroll_progress = fmax(0, fmin(1, scroll_progress));
+        
+        // Calculate max range considering menu bar height
+        int max_scrollbar_range = netHeight - scrollbar.h - 25;
+        
+        // Position scrollbar proportionally, starting just below menu bar
+        scrollbar.y = 25 + (int)(scroll_progress * max_scrollbar_range);
 
         SDL_RenderFillRect(renderer, &scrollbar);
     }
-}
-
-void drawcursor() {
+}void drawcursor() {
     SDL_SetRenderDrawColor(renderer, cursor_color.r, cursor_color.g, cursor_color.b, cursor_color.a);
     SDL_GetWindowSize(window, &netWidth, &netHeight);
     
     // Calculate the cursor's Y position based only on render_y_off
     int font_height = TTF_FontHeight(font);
-    int cursorY = render_y_off + (cursor_line * font_height);
+    int cursorY;
+	
+	// Use original logic when total lines fit in the window
+	if (total_lines <= linesToDisplay) {
+		cursorY = render_y_off + (cursor_line * font_height);
+	} 
+	// Use new viewport-adjusted logic when scrolling is needed
+	else {
+		cursorY = render_y_off + ((cursor_line - (virtual_cursor_line - linesToDisplay/2)) * font_height);
+	}
+
    
     // Only draw if cursor is in visible area
     if (cursorY >= 25 && cursorY < netHeight) {
@@ -2639,4 +2793,49 @@ void draw_themes_dropddown() {
     each_drawer("Wood");
     each_drawer("Tiles");
     each_drawer("Obsidian");
+}
+
+void manage_buffer_size() {
+    const int MIN_BUFFER_SIZE = 256;     // Minimum buffer size
+    const float SHRINK_THRESHOLD = 0.25; // Shrink when buffer is less than 25% full
+    //const float GROWTH_FACTOR = 1.5;     // Factor to grow buffer when needed
+
+    // Calculate current buffer usage
+    float buffer_usage = (float)bufferIndex / buffer_size;
+
+    // Determine optimal buffer size based on actual content
+    int optimal_buffer_size = bufferIndex + (bufferIndex * 0.2); // Add 20% extra space
+    optimal_buffer_size = fmax(optimal_buffer_size, MIN_BUFFER_SIZE);
+
+    // Debug: Print current buffer state
+    printf("Buffer Management:\n");
+    printf("  Current buffer_size: %d\n", buffer_size);
+    printf("  Current bufferIndex: %d\n", bufferIndex);
+    printf("  Buffer usage: %.2f%%\n", buffer_usage * 100);
+    printf("  Optimal buffer size: %d\n", optimal_buffer_size);
+
+    // Shrink buffer if significantly oversized
+    if (buffer_usage < SHRINK_THRESHOLD && buffer_size > optimal_buffer_size) {
+        // Reallocate buffer to optimal size
+        char* new_textBuffer = (char*)realloc(textBuffer, optimal_buffer_size);
+        
+        if (new_textBuffer) {
+            textBuffer = new_textBuffer;
+            
+            // Zero out the newly allocated space beyond current content
+            if (optimal_buffer_size > bufferIndex) {
+                memset(textBuffer + bufferIndex + 1, 0, optimal_buffer_size - bufferIndex - 1);
+            }
+            
+            // Update buffer size
+            buffer_size = optimal_buffer_size;
+            
+            // Debug logging
+            printf("  Buffer shrunk to optimal size\n");
+            printf("  New buffer_size: %d\n", buffer_size);
+        } else {
+            // Allocation failed, log error
+            printf("  ERROR: Failed to shrink buffer\n");
+        }
+    }
 }
