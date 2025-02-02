@@ -43,6 +43,7 @@ int x = 0;  // Cursor x position
 // Scroll state
 int currentTextBlockHeight = 0;
 int scroll_count = 0;
+int scroll_drag_offset = 0;
 
 // Cursor highlight
 int highlight_start = 0;
@@ -95,6 +96,10 @@ int viewport_bottom_line = 0;
 // Global buffer size variable
 int buffer_size = INITIAL_SIZE;
 
+// Manual scrollbar dragging flag
+bool manual_scrollbar_drag = false;
+int manual_scroll_mouseY = 0;
+
 // Function prototypes
 void theme_tiles();
 void theme_wood();
@@ -113,6 +118,7 @@ void showNotification(SDL_Renderer *renderer, TTF_Font *font, const char *messag
 void ensure_cursor_visible();
 void update_viewport();
 void manage_buffer_size();
+void manage_scroll();
 
 // SDL Clickable regions 
 SDL_Rect fileItem = {0,0,0,0}; 
@@ -616,7 +622,7 @@ int main(int argc, char* argv[]) {
 				fileSaved = false;
 				mouseX = e.button.x;
 				mouseY = e.button.y;
-								
+				
 //				*x = mouseX; 
 //				*y = mouseY;							
 								
@@ -639,6 +645,11 @@ int main(int argc, char* argv[]) {
 				
 				
 				if(e.button.button == SDL_BUTTON_LEFT){
+					mouse_clicked_flag = true;
+					printf("%d", mouse_clicked_flag);
+
+				if(!isMouseOver(scrollbar, mouseX, mouseY)){
+
 				// Check if the click occurred within the clickable region
 					
 //						printf("\n JUMP HEREEEREEEEE!");
@@ -736,16 +747,28 @@ int main(int argc, char* argv[]) {
 						}
 					}
 					
-										
-					if ((isMouseOver(fileItem, mouseX, mouseY) && file_item_drop_down_flag == false)) file_item_drop_down_flag = true;
-					else if ((isMouseOver(fileItem, mouseX, mouseY) && file_item_drop_down_flag == true)) file_item_drop_down_flag = false;
-					
-					//if ((!isMouseOver(fileItem, mouseX, mouseY) && file_item_drop_down_flag == true)) file_item_drop_down_flag = false;
+															
+					if ((isMouseOver(fileItem, mouseX, mouseY) && file_item_drop_down_flag == false)) {
+						file_item_drop_down_flag = true;
+						themes_item_drop_down_flag = false; // Close other dropdowns
+					}
+					else if ((file_item_drop_down_flag == true)) {
+						// Only close if not over dropdown area
+						if (!isMouseOver(fileItem_DROP_DOWN, mouseX, mouseY)) {
+							file_item_drop_down_flag = false;
+						}
+					}
 
-					//else file_item_drop_down_flag = false;						
-					
-					if ((isMouseOver(themeItem, mouseX, mouseY) && themes_item_drop_down_flag == false)) themes_item_drop_down_flag = true;
-					else if ((isMouseOver(themeItem, mouseX, mouseY) && themes_item_drop_down_flag == true)) themes_item_drop_down_flag = false;
+					if ((isMouseOver(themeItem, mouseX, mouseY) && themes_item_drop_down_flag == false)) {
+						themes_item_drop_down_flag = true;
+						file_item_drop_down_flag = false; // Close other dropdowns
+					}
+					else if ((themes_item_drop_down_flag == true)) {
+						// Only close if not over dropdown area
+						if (!isMouseOver(themeItem_DROP_DOWN, mouseX, mouseY)) {
+							themes_item_drop_down_flag = false;
+						}
+					}
 					
 					//if ((!isMouseOver(themeItem, mouseX, mouseY) && themes_item_drop_down_flag == true)) themes_item_drop_down_flag = false;
 
@@ -753,6 +776,7 @@ int main(int argc, char* argv[]) {
 					
 					if (isMouseOver(scrollbar, mouseX, mouseY)) {
 						scrollbar_flag = true;
+						manual_scrollbar_drag = true;
 					}
 					else scrollbar_flag = false;
 				}
@@ -773,10 +797,9 @@ int main(int argc, char* argv[]) {
 					theme_drawer_tiles_flag_clicked = false;
 					theme_drawer_obsidian_flag_clicked = false;
 				}
-
-
-								
+			}					
 			} else if(e.type == SDL_MOUSEMOTION){
+				if(!isMouseOver(scrollbar, mouseX, mouseY)){		
 				mouseX = e.button.x;
 				mouseY = e.button.y;
 				
@@ -792,9 +815,47 @@ int main(int argc, char* argv[]) {
 						//printf("\n HEREEEREEEEE!");
 						
 						if(scroll_y_pos < 25) scroll_y_pos = 25;
+						if(scroll_y_pos > netHeight - scrollbar.h - 25) 
+							scroll_y_pos = netHeight - scrollbar.h - 25;
+
+						// Calculate scroll progress
+						float scroll_progress = (float)(scroll_y_pos - 25) / 
+												(netHeight - scrollbar.h - 50);
+
+						// Calculate total number of lines in the document
+						int total_lines = 0;
+						for (int i = 0; i < bufferIndex; i++) {
+							if (textBuffer[i] == '\n') {
+								total_lines++;
+							}
+						}
+
+						// Update virtual cursor line based on scroll progress
+						virtual_cursor_line = (int)(scroll_progress * total_lines);
+
+						// Find character index for the calculated line
+						int current_line = 0;
+						int char_index = 0;
+						while (char_index < bufferIndex && current_line < virtual_cursor_line) {
+							if (textBuffer[char_index] == '\n') {
+								current_line++;
+							}
+							char_index++;
+						}
+
+						// Update virtual cursor and scrollbar position
+						virtual_cursor = char_index;
+						scrollbar.y = scroll_y_pos;
+
+						// Adjust render offset to match virtual cursor
+						render_y_off = -virtual_cursor_line * TTF_FontHeight(font);
+
+						// Force viewport update
+						update_viewport();
 					}
 					if(isDragging == true && (e.motion.x > 0 && e.motion.y > 25) && scrollbar_flag == false){
-						
+
+							
 						is_scrolling = true;
 						//if(e.button.button == SDL_BUTTON_LEFT){
 						// Check if the click occurred within the clickable region
@@ -911,23 +972,36 @@ int main(int argc, char* argv[]) {
 						highlight_start = highlight_anchor;
 						highlight_end = cursor;
 					}
-				}				
-				else{
-					// To get the end of the current line where the mouse is being hovered over. Need this to calculate the portion of the text buffer to display
-					
-					// Calculate the the current line we are on 
-					// Get to the end of the line and save that position as the position of the mouse cursor 
-					
 				}
+			}else if(isMouseOver(scrollbar, mouseX, mouseY) && mouse_clicked_flag == true){
+					// Implement smoother scrollbar dragging
+					manual_scrollbar_drag = true;
+					
+					// Calculate the offset between mouse and scrollbar
+					if (scroll_drag_offset == 0) {
+						scroll_drag_offset = e.motion.y - scrollbar.y;
+					}
+					
+					// Update manual scroll Y, accounting for the initial offset
+					manual_scroll_mouseY = e.motion.y - scroll_drag_offset;
+					
+					printf("Drag Offset: %d, Mouse Y: %d, Scrollbar Y: %d\n", 
+						   scroll_drag_offset, e.motion.y, scrollbar.y);
+				}
+
 			} else if(e.type == SDL_MOUSEBUTTONUP){
 				isDragging = false; 
 				is_scrolling = false;
 				scrollbar_flag = false;
-				//scroll_offset = 0; 
-				
-			} else if (e.type == SDL_MOUSEWHEEL){
+				mouse_clicked_flag = false;
+				manual_scrollbar_drag = false;  // Reset manual scrollbar drag flag
+				scroll_offset = 0; 
+				scroll_drag_offset = 0;
+
+			}  else if (e.type == SDL_MOUSEWHEEL){
 
 				if(mod & KMOD_CTRL){
+										
 					// Then in your wheel event handler:
 					int new_point_size = current_font_size + e.wheel.y;
 					if (new_point_size < 1) {
@@ -959,10 +1033,8 @@ int main(int argc, char* argv[]) {
 						scroll_count += e.wheel.y;
 						render_y_off += (e.wheel.y*TTF_FontHeight(font));
 					}
-					if(render_y_off > 25) render_y_off = 25;
-				}
 //				printf("%d \n", line_number);
-				
+				}
 			} else if (e.type == SDL_KEYDOWN) {
 //				printf("%c" ,textBuffer[cursor-1]);
 				
@@ -1129,6 +1201,8 @@ int main(int argc, char* argv[]) {
 								swap(&textBuffer[cursor + 1], &textBuffer[cursor]);
 								cursor++;
 							}
+							swap(&textBuffer[cursor], &textBuffer[cursor-1]);
+							cursor--;
 							flag_1 = 0;
 							break;
 						}
@@ -1236,7 +1310,7 @@ int main(int argc, char* argv[]) {
 										
 					if(e.key.keysym.sym == SDLK_s){	
 						if(!file){
-							const char *filters[2] = {".txt", ".c"};
+							const char *filters[2] = {"*.txt", "*.c"};
 							const char *filter_description = "Text or C Files";
 							
 							filename = tinyfd_saveFileDialog(
@@ -1286,7 +1360,7 @@ int main(int argc, char* argv[]) {
 							 notifStartTime = SDL_GetTicks();
 						}
 					} else if(e.key.keysym.sym == SDLK_n){	
-						const char *filters[2] = {".txt", ".c"};	
+						const char *filters[2] = {"*.txt", "*.c"};	
 						
 						open_drawer_flag = false;
 						file_item_drop_down_flag = false;
@@ -1322,7 +1396,7 @@ int main(int argc, char* argv[]) {
 							}
 						}
 						
-						const char *filters2[2] = {".txt", ".c"};	
+						const char *filters2[2] = {"*.txt", "*.c"};	
 						const char *filter_description2 = "Text or C Files";
 						
 						filename = tinyfd_saveFileDialog(
@@ -1534,9 +1608,10 @@ int main(int argc, char* argv[]) {
 								
 								if (!new_textBuffer) {
 									printf("CRITICAL ERROR: Failed to expand textBuffer\n");
-									free(cleaned_text);
-									SDL_free(copied_text);
-									break;
+									free(textBuffer);
+									free(tempBuffer);
+									fclose(file);
+									return 1;
 								}
 								
 								textBuffer = new_textBuffer;
@@ -2006,18 +2081,17 @@ int main(int argc, char* argv[]) {
 					}
 				}
 				
-				const char *filters[2] = {".txt", ".c"};	
-				const char *filter_description = "Text or C Files";
+				const char *filters[2] = {"*.txt", "*.c"};
 				
 				filename = tinyfd_saveFileDialog(
 					"Save File",            // Dialog title
 					"default.txt",           // Default file name
 					2,                      // Number of filters
 					filters,                // File type filters
-					filter_description      // Filter description
+					"Text or C Files"      // Filter description
 				);
 				
-				if(filename != NULL){
+				if(filename != NULL) {
 					if(file) {
 						fclose(file);
 					}
@@ -2075,7 +2149,7 @@ int main(int argc, char* argv[]) {
 				
 				bufferIndex = 0;
 				
-				const char *filters[2] = {".txt", ".c"};	
+				const char *filters[2] = {"*.txt", "*.c"};	
 				const char *filter_description = "Text or C Files";
 				
 				filename = tinyfd_openFileDialog(
@@ -2097,36 +2171,73 @@ int main(int argc, char* argv[]) {
 						perror("Error opening file");
 						return 1;
 					}
+
+					// Get file size for initial buffer allocation
+					fseek(file, 0, SEEK_END);
+					long fileSize = ftell(file);
+					rewind(file);
+
+					printf("Opening file: %s\n", filename);
+					printf("Initial file size: %ld bytes\n", fileSize);
+					printf("Initial buffer size: %d\n", buffer_size);
+
+					bufferIndex = 0;
+					size_t bytesRead;
+					int buffer_growth_count = 0;
+
+					while ((bytesRead = fread(textBuffer + bufferIndex, 1, buffer_size - bufferIndex - 1, file)) > 0) {
+						bufferIndex += bytesRead;
+
+						printf("Iteration %d:\n", buffer_growth_count);
+						printf("  Bytes read: %zu\n", bytesRead);
+						printf("  Current bufferIndex: %zu\n", bufferIndex);
+						printf("  Current buffer size: %d\n", buffer_size);
+
+						// If we're close to buffer capacity, grow it
+						if (bufferIndex >= buffer_size - 1) {
+							buffer_growth_count++;
+							
+							// Grow buffer
+							buffer_size *= GROWTH_FACTOR;
+							
+							printf("  BUFFER GROWTH ATTEMPT %d:\n", buffer_growth_count);
+							printf("  Expanding buffer to: %d\n", buffer_size);
+
+							char* new_textBuffer = (char*)realloc(textBuffer, buffer_size);
+							char* new_tempBuffer = (char*)realloc(tempBuffer, buffer_size);
+							int* new_lineNumbers = (int*)realloc(lineNumbers, buffer_size);
+
+							if (new_textBuffer == NULL || new_tempBuffer == NULL || new_lineNumbers == NULL) {
+								printf("CRITICAL: Failed to expand buffers\n");
+								free(textBuffer);
+								free(tempBuffer);
+								free(lineNumbers);
+								fclose(file);
+								return 1;
+							}
+
+							textBuffer = new_textBuffer;
+							tempBuffer = new_tempBuffer;
+							lineNumbers = new_lineNumbers;
+
+							printf("  Buffer successfully expanded\n");
+						}
+					}
+
+					// Null-terminate the buffer
+					textBuffer[bufferIndex] = '\0';
+
+					// Final debug information
+					printf("File loading complete:\n");
+					printf("  Total buffer growth attempts: %d\n", buffer_growth_count);
+					printf("  Final buffer size: %d\n", buffer_size);
+					printf("  Total bytes read: %zu\n", bufferIndex);
+
+					cursor = bufferIndex;
 				}
 				else{
 					showNotification(renderer, font, "Incorrect file path!");
 				}
-				
-				size_t bytesRead;
-				while ((bytesRead = fread(textBuffer + bufferIndex, 1, buffer_size - bufferIndex, file)) > 0) {
-					bufferIndex += bytesRead;
-
-					// If we exceed the current buffer size, grow the buffer
-					if (bufferIndex >= buffer_size) {
-						buffer_size *= GROWTH_FACTOR; // Increase buffer size
-						char* new_textBuffer = (char*) realloc(textBuffer, buffer_size);
-						char* new_tempBuffer = (char*) realloc(tempBuffer, buffer_size);
-						printf("Buffer size updated: %d", buffer_size);
-						if (new_textBuffer == NULL || new_tempBuffer == NULL) {
-							perror("realloc failed");
-							fclose(file);
-							return 1;
-						}
-						textBuffer = new_textBuffer;
-						tempBuffer = new_tempBuffer;
-					}
-
-				}
-				
-		//		bufferIndex = strlen(textBuffer);
-		//		printf("%d",bufferIndex);
-				cursor = bufferIndex;
-				
 			}
 			else if(save_drawer_flag_clicked){
 				printf("\n Save Drawer Selected!");
@@ -2163,7 +2274,7 @@ int main(int argc, char* argv[]) {
 				file_item_drop_down_flag = false;
 				
 				if(!file){
-				const char *filters[2] = {".txt", ".c"};
+				const char *filters[2] = {"*.txt", "*.c"};
 				const char *filter_description = "Text or C Files";
 				
 				filename = tinyfd_saveFileDialog(
@@ -2494,8 +2605,7 @@ void showNotification(SDL_Renderer *renderer, TTF_Font *font, const char *messag
 		notificationRect.y + (notificationRect.h - textHeight) / 2,
 		textWidth,
 		textHeight
-	};
-
+	};    
 
 	SDL_RenderCopy(renderer, textTexture, NULL, &textRect);
 
@@ -2517,7 +2627,7 @@ void drawscroll(int scroll_y) {
             total_lines++;
         }
     }
-//    printf("%d",total_lines);
+
     if (total_lines * TTF_FontHeight(font) > netHeight) {
         scrollbar.x = netWidth - 25;
         scrollbar.w = 20;
@@ -2527,21 +2637,69 @@ void drawscroll(int scroll_y) {
         scrollbar.h = (int)((netHeight - 50) * visible_ratio);  // Subtract 50 to account for menu bar and bottom margin
         if (scrollbar.h < 30) scrollbar.h = 30;
         
-        // Calculate scrollbar vertical position based on virtual cursor line
-        float scroll_progress = (float)(virtual_cursor_line - (linesToDisplay / 2)) / (total_lines - linesToDisplay);
-        
-        // Ensure scroll_progress is between 0 and 1
-        scroll_progress = fmax(0, fmin(1, scroll_progress));
-        
-        // Calculate max range considering menu bar height
-        int max_scrollbar_range = netHeight - scrollbar.h - 25;
-        
-        // Position scrollbar proportionally, starting just below menu bar
-        scrollbar.y = 25 + (int)(scroll_progress * max_scrollbar_range);
+        // Check if manual scrollbar dragging is active
+        if (manual_scrollbar_drag) {
+            // Calculate new scrollbar position based on mouse movement
+            int scroll_start = 25;  // Top margin of scrollbar area
+            int scroll_end = netHeight - scrollbar.h - 25;  // Bottom margin of scrollbar area
+            
+            // Constrain the manual scroll Y position within the scroll area
+            int constrained_scroll_y = fmax(scroll_start, fmin(manual_scroll_mouseY, scroll_end));
+            
+            // Calculate scroll progress based on constrained mouse Y position
+            float scroll_progress = (float)(constrained_scroll_y - scroll_start) / (scroll_end - scroll_start);
+            
+            // Calculate the first visible line based on scroll progress
+            // Allow scrolling beyond viewport limits
+            int first_visible_line = (int)(scroll_progress * total_lines);
+            
+            // Update cursor position to match the first visible line
+            int new_cursor = 0;
+            for (int line = 0; line < first_visible_line; line++) {
+                while (new_cursor < bufferIndex && textBuffer[new_cursor] != '\n') {
+                    new_cursor++;
+                }
+                if (new_cursor < bufferIndex) new_cursor++; // Move past the newline
+            }
+            
+            // Simply update cursor position without modifying buffer
+			if(new_cursor > cursor){
+				memmove(&textBuffer[cursor], &textBuffer[cursor + 1], new_cursor - cursor);
+				cursor = new_cursor;
+			}
+			else if(new_cursor < cursor){
+				memmove(&textBuffer[new_cursor + 1], &textBuffer[new_cursor], cursor - new_cursor);
+				cursor = new_cursor;
+			}
+            
+            // Update virtual cursor line and render offset
+            virtual_cursor_line = first_visible_line;
+            render_y_off = -first_visible_line * TTF_FontHeight(font);
+            
+            // Update scrollbar position
+            scrollbar.y = constrained_scroll_y;
+            
+            printf("Scroll Progress: %f, First Visible Line: %d, Render Y Offset: %d, Cursor: %d\n", 
+                   scroll_progress, first_visible_line, render_y_off, cursor);
+        } else {
+            // Original dynamic calculation
+            float scroll_progress = (float)(virtual_cursor_line - (linesToDisplay / 2)) / (total_lines - linesToDisplay);
+            
+            // Ensure scroll_progress is between 0 and 1
+            scroll_progress = fmax(0, fmin(1, scroll_progress));
+            
+            // Calculate max range considering menu bar height
+            int max_scrollbar_range = netHeight - scrollbar.h - 25;
+            
+            // Position scrollbar proportionally, starting just below menu bar
+            scrollbar.y = 25 + (int)(scroll_progress * max_scrollbar_range);
+        }
 
         SDL_RenderFillRect(renderer, &scrollbar);
     }
-}void drawcursor() {
+}
+
+void drawcursor() {
     SDL_SetRenderDrawColor(renderer, cursor_color.r, cursor_color.g, cursor_color.b, cursor_color.a);
     SDL_GetWindowSize(window, &netWidth, &netHeight);
     
@@ -2596,7 +2754,7 @@ void drawMenuBar() {
     SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
     SDL_FreeSurface(textSurface);
 
-    int textWidth = 0, textHeight = 0;
+    int textWidth, textHeight;
     SDL_QueryTexture(textTexture, NULL, NULL, &textWidth, &textHeight);
 
     SDL_Rect textRect = {
@@ -2634,7 +2792,7 @@ void draw_file_dropdown() {
         SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
         SDL_FreeSurface(textSurface);
 
-        int textWidth = 0, textHeight = 0;
+        int textWidth, textHeight;
         SDL_QueryTexture(textTexture, NULL, NULL, &textWidth, &textHeight);
 
         textRect.x = fileItem_DROP_DOWN.x + 5;
@@ -2707,7 +2865,7 @@ void drawThemesBar() {
     SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
     SDL_FreeSurface(textSurface);
 
-    int textWidth = 0, textHeight = 0;
+    int textWidth, textHeight;
     SDL_QueryTexture(textTexture, NULL, NULL, &textWidth, &textHeight);
 
     SDL_Rect textRect = {
@@ -2745,7 +2903,7 @@ void draw_themes_dropddown() {
         SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
         SDL_FreeSurface(textSurface);
 
-        int textWidth = 0, textHeight = 0;
+        int textWidth, textHeight;
         SDL_QueryTexture(textTexture, NULL, NULL, &textWidth, &textHeight);
 
         textRect.x = themeItem_DROP_DOWN.x + 5;
