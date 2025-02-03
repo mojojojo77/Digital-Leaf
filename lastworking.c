@@ -44,6 +44,7 @@ int x = 0;  // Cursor x position
 int currentTextBlockHeight = 0;
 int scroll_count = 0;
 int scroll_drag_offset = 0;
+bool scrollbar_clicked_flag = false;
 
 // Cursor highlight
 int highlight_start = 0;
@@ -643,10 +644,14 @@ int main(int argc, char* argv[]) {
 				if(highlight_flag)
 					highlight_flag = 0;
 				
-				
+				printf("\n Button Pressed");
 				if(e.button.button == SDL_BUTTON_LEFT){
 					mouse_clicked_flag = true;
 					printf("%d", mouse_clicked_flag);
+
+					if(isClickedOn(scrollbar, mouseX, mouseY)){
+						scrollbar_clicked_flag = true;
+					}
 
 				if(!isMouseOver(scrollbar, mouseX, mouseY)){
 
@@ -659,10 +664,11 @@ int main(int argc, char* argv[]) {
 					if(mouseY > 25){
 						// Adjust mouse Y position by scroll offset for accurate cursor positioning
 						int adjusted_mouseY = mouseY - render_y_off;
-						current_cursor_line = (adjusted_mouseY - 25) / TTF_FontHeight(font);
+						current_cursor_line = (adjusted_mouseY) / TTF_FontHeight(font);
+						current_cursor_line += viewport_top_line;
 						
 						// Add scroll offset in lines
-						current_cursor_line += (-render_y_off / TTF_FontHeight(font));
+						//current_cursor_line += (-render_y_off / TTF_FontHeight(font));
 						
 						// Ensure cursor line doesn't go negative
 						if(current_cursor_line < 0) current_cursor_line = 0;
@@ -773,12 +779,6 @@ int main(int argc, char* argv[]) {
 					//if ((!isMouseOver(themeItem, mouseX, mouseY) && themes_item_drop_down_flag == true)) themes_item_drop_down_flag = false;
 
 					//else themes_item_drop_down_flag = false;	
-					
-					if (isMouseOver(scrollbar, mouseX, mouseY)) {
-						scrollbar_flag = true;
-						manual_scrollbar_drag = true;
-					}
-					else scrollbar_flag = false;
 				}
 				
 				if(file_item_drop_down_flag && !isMouseOver(fileItem_DROP_DOWN, mouseX, mouseY)){
@@ -799,9 +799,10 @@ int main(int argc, char* argv[]) {
 				}
 			}					
 			} else if(e.type == SDL_MOUSEMOTION){
-				if(!isMouseOver(scrollbar, mouseX, mouseY)){		
 				mouseX = e.button.x;
 				mouseY = e.button.y;
+
+				if(!isMouseOver(scrollbar, mouseX, mouseY)){		
 				
 				if(scrollbar_flag == true){
 					is_scrolling = true;
@@ -973,10 +974,11 @@ int main(int argc, char* argv[]) {
 						highlight_end = cursor;
 					}
 				}
-			}else if(isMouseOver(scrollbar, mouseX, mouseY) && mouse_clicked_flag == true){
+			}if(scrollbar_clicked_flag && mouse_clicked_flag == true){
 					// Implement smoother scrollbar dragging
 					manual_scrollbar_drag = true;
-					
+					highlight_flag = 0;
+
 					// Calculate the offset between mouse and scrollbar
 					if (scroll_drag_offset == 0) {
 						scroll_drag_offset = e.motion.y - scrollbar.y;
@@ -985,8 +987,8 @@ int main(int argc, char* argv[]) {
 					// Update manual scroll Y, accounting for the initial offset
 					manual_scroll_mouseY = e.motion.y - scroll_drag_offset;
 					
-					printf("Drag Offset: %d, Mouse Y: %d, Scrollbar Y: %d\n", 
-						   scroll_drag_offset, e.motion.y, scrollbar.y);
+					//printf("Drag Offset: %d, Mouse Y: %d, Scrollbar Y: %d\n", 
+					//	   scroll_drag_offset, e.motion.y, scrollbar.y);
 				}
 
 			} else if(e.type == SDL_MOUSEBUTTONUP){
@@ -997,6 +999,7 @@ int main(int argc, char* argv[]) {
 				manual_scrollbar_drag = false;  // Reset manual scrollbar drag flag
 				scroll_offset = 0; 
 				scroll_drag_offset = 0;
+				scrollbar_clicked_flag = false;
 
 			}  else if (e.type == SDL_MOUSEWHEEL){
 
@@ -1018,20 +1021,25 @@ int main(int argc, char* argv[]) {
 				}
 			
 				else{				
-					if((e.wheel.y > 0 || currentTextBlockHeight + render_y_off > netHeight) && (render_y_off < 25 || e.wheel.y < 0)){
-						SDL_Event event;
-						if(e.wheel.y == 1){
-							event.type = SDL_KEYDOWN;
-							event.key.keysym.sym = SDLK_DOWN;
-							SDL_PushEvent(&event);
+					if(true){
+						manual_scrollbar_drag = true;
+						// Use actual wheel delta for more precise scrolling
+						int scroll_delta = e.wheel.y * 5;  // Multiply by a factor to increase sensitivity
+						manual_scroll_mouseY += scroll_delta;
+						
+						// Clamp manual_scroll_mouseY within scrollbar bounds
+						SDL_GetWindowSize(window, &netWidth, &netHeight);
+						int scroll_start = 25;  // Top margin of scrollbar area
+						int scroll_end = netHeight - scrollbar.h - 25;  // Bottom margin of scrollbar area
+						
+						manual_scroll_mouseY = fmax(scroll_start, fmin(manual_scroll_mouseY, scroll_end));
+						
+						// Optional: Add some acceleration for faster scrolling
+						if (abs(e.wheel.y) > 1) {
+							manual_scroll_mouseY += (e.wheel.y > 0 ? 1 : -1) * 10;
 						}
-						else if(e.wheel.y == -1){
-							event.type = SDL_KEYDOWN;
-							event.key.keysym.sym = SDLK_UP;
-							SDL_PushEvent(&event);
-						}						
-						scroll_count += e.wheel.y;
-						render_y_off += (e.wheel.y*TTF_FontHeight(font));
+						
+						//printf("Wheel Delta: %d, Scroll Position: %d\n", e.wheel.y, manual_scroll_mouseY);
 					}
 //				printf("%d \n", line_number);
 				}
@@ -1956,7 +1964,6 @@ int main(int argc, char* argv[]) {
 		
 		
 		
-		
 		drawcursor();			
 
 		while ((token = strsep(&str, "\n")) != NULL) {
@@ -2654,13 +2661,23 @@ void drawscroll(int scroll_y) {
             int first_visible_line = (int)(scroll_progress * total_lines);
             
             // Update cursor position to match the first visible line
-            cursor = 0;
+            int new_cursor = 0;
             for (int line = 0; line < first_visible_line; line++) {
-                while (cursor < bufferIndex && textBuffer[cursor] != '\n') {
-                    cursor++;
+                while (new_cursor < bufferIndex && textBuffer[new_cursor] != '\n') {
+                    new_cursor++;
                 }
-                if (cursor < bufferIndex) cursor++; // Move past the newline
+                if (new_cursor < bufferIndex) new_cursor++; // Move past the newline
             }
+            
+            // Simply update cursor position without modifying buffer
+			if(new_cursor > cursor){
+				memmove(&textBuffer[cursor], &textBuffer[cursor + 1], new_cursor - cursor);
+				cursor = new_cursor;
+			}
+			else if(new_cursor < cursor){
+				memmove(&textBuffer[new_cursor + 1], &textBuffer[new_cursor], cursor - new_cursor);
+				cursor = new_cursor;
+			}
             
             // Update virtual cursor line and render offset
             virtual_cursor_line = first_visible_line;
@@ -2668,9 +2685,9 @@ void drawscroll(int scroll_y) {
             
             // Update scrollbar position
             scrollbar.y = constrained_scroll_y;
-            
-            printf("Scroll Progress: %f, First Visible Line: %d, Render Y Offset: %d, Cursor: %d\n", 
-                   scroll_progress, first_visible_line, render_y_off, cursor);
+            manual_scrollbar_drag = false;
+            //printf("Scroll Progress: %f, First Visible Line: %d, Render Y Offset: %d, Cursor: %d\n", 
+            //       scroll_progress, first_visible_line, render_y_off, cursor);
         } else {
             // Original dynamic calculation
             float scroll_progress = (float)(virtual_cursor_line - (linesToDisplay / 2)) / (total_lines - linesToDisplay);
@@ -2744,7 +2761,7 @@ void drawMenuBar() {
     SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
     SDL_FreeSurface(textSurface);
 
-    int textWidth = 0, textHeight = 0;
+    int textWidth, textHeight;
     SDL_QueryTexture(textTexture, NULL, NULL, &textWidth, &textHeight);
 
     SDL_Rect textRect = {
@@ -2782,7 +2799,7 @@ void draw_file_dropdown() {
         SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
         SDL_FreeSurface(textSurface);
 
-        int textWidth = 0, textHeight = 0;
+        int textWidth, textHeight;
         SDL_QueryTexture(textTexture, NULL, NULL, &textWidth, &textHeight);
 
         textRect.x = fileItem_DROP_DOWN.x + 5;
@@ -2855,7 +2872,7 @@ void drawThemesBar() {
     SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
     SDL_FreeSurface(textSurface);
 
-    int textWidth = 0, textHeight = 0;
+    int textWidth, textHeight;
     SDL_QueryTexture(textTexture, NULL, NULL, &textWidth, &textHeight);
 
     SDL_Rect textRect = {
@@ -2893,7 +2910,7 @@ void draw_themes_dropddown() {
         SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
         SDL_FreeSurface(textSurface);
 
-        int textWidth = 0, textHeight = 0;
+        int textWidth, textHeight;
         SDL_QueryTexture(textTexture, NULL, NULL, &textWidth, &textHeight);
 
         textRect.x = themeItem_DROP_DOWN.x + 5;

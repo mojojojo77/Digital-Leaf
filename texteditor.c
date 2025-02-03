@@ -44,6 +44,7 @@ int x = 0;  // Cursor x position
 int currentTextBlockHeight = 0;
 int scroll_count = 0;
 int scroll_drag_offset = 0;
+bool scrollbar_clicked_flag = false;
 
 // Cursor highlight
 int highlight_start = 0;
@@ -565,8 +566,16 @@ int main(int argc, char* argv[]) {
     keyEvent.key.repeat = 0;                    // Not a repeated key press
 ***/
 
+	while (!quit) {
+		viewport_top_line = virtual_cursor_line - linesToDisplay / 2;
+		viewport_bottom_line = virtual_cursor_line + linesToDisplay / 2;
 
-    while (!quit) {
+
+		printf("\n Cursor Line: %d", cursor_line);
+		printf("\n Viewport Top Line: %d", viewport_top_line);
+		printf("\n Viewport Bottom Line: %d", viewport_bottom_line);
+		system("cls");
+
 		switch(theme){
 			case 1: theme_forest();break;
 			case 2:	theme_mountain();break;
@@ -643,10 +652,14 @@ int main(int argc, char* argv[]) {
 				if(highlight_flag)
 					highlight_flag = 0;
 				
-				
+				printf("\n Button Pressed");
 				if(e.button.button == SDL_BUTTON_LEFT){
 					mouse_clicked_flag = true;
 					printf("%d", mouse_clicked_flag);
+
+					if(isClickedOn(scrollbar, mouseX, mouseY)){
+						scrollbar_clicked_flag = true;
+					}
 
 				if(!isMouseOver(scrollbar, mouseX, mouseY)){
 
@@ -659,10 +672,11 @@ int main(int argc, char* argv[]) {
 					if(mouseY > 25){
 						// Adjust mouse Y position by scroll offset for accurate cursor positioning
 						int adjusted_mouseY = mouseY - render_y_off;
-						current_cursor_line = (adjusted_mouseY - 25) / TTF_FontHeight(font);
+						current_cursor_line = (adjusted_mouseY) / TTF_FontHeight(font);
+						current_cursor_line += viewport_top_line;
 						
 						// Add scroll offset in lines
-						current_cursor_line += (-render_y_off / TTF_FontHeight(font));
+						//current_cursor_line += (-render_y_off / TTF_FontHeight(font));
 						
 						// Ensure cursor line doesn't go negative
 						if(current_cursor_line < 0) current_cursor_line = 0;
@@ -773,12 +787,6 @@ int main(int argc, char* argv[]) {
 					//if ((!isMouseOver(themeItem, mouseX, mouseY) && themes_item_drop_down_flag == true)) themes_item_drop_down_flag = false;
 
 					//else themes_item_drop_down_flag = false;	
-					
-					if (isMouseOver(scrollbar, mouseX, mouseY)) {
-						scrollbar_flag = true;
-						manual_scrollbar_drag = true;
-					}
-					else scrollbar_flag = false;
 				}
 				
 				if(file_item_drop_down_flag && !isMouseOver(fileItem_DROP_DOWN, mouseX, mouseY)){
@@ -799,9 +807,10 @@ int main(int argc, char* argv[]) {
 				}
 			}					
 			} else if(e.type == SDL_MOUSEMOTION){
-				if(!isMouseOver(scrollbar, mouseX, mouseY)){		
 				mouseX = e.button.x;
 				mouseY = e.button.y;
+
+				if(!isMouseOver(scrollbar, mouseX, mouseY)){		
 				
 				if(scrollbar_flag == true){
 					is_scrolling = true;
@@ -864,7 +873,7 @@ int main(int argc, char* argv[]) {
 								// Adjust mouse Y position by scroll offset for accurate cursor positioning
 								int adjusted_mouseY = mouseY - render_y_off;
 								current_cursor_line = (adjusted_mouseY - 25) / TTF_FontHeight(font);
-								
+								//current_cursor_line += viewport_top_line;
 								// Add scroll offset in lines
 								current_cursor_line += (-render_y_off / TTF_FontHeight(font));
 								
@@ -973,10 +982,11 @@ int main(int argc, char* argv[]) {
 						highlight_end = cursor;
 					}
 				}
-			}else if(isMouseOver(scrollbar, mouseX, mouseY) && mouse_clicked_flag == true){
+			}if(scrollbar_clicked_flag && mouse_clicked_flag == true){
 					// Implement smoother scrollbar dragging
 					manual_scrollbar_drag = true;
-					
+					highlight_flag = 0;
+
 					// Calculate the offset between mouse and scrollbar
 					if (scroll_drag_offset == 0) {
 						scroll_drag_offset = e.motion.y - scrollbar.y;
@@ -985,8 +995,8 @@ int main(int argc, char* argv[]) {
 					// Update manual scroll Y, accounting for the initial offset
 					manual_scroll_mouseY = e.motion.y - scroll_drag_offset;
 					
-					printf("Drag Offset: %d, Mouse Y: %d, Scrollbar Y: %d\n", 
-						   scroll_drag_offset, e.motion.y, scrollbar.y);
+					//printf("Drag Offset: %d, Mouse Y: %d, Scrollbar Y: %d\n", 
+					//	   scroll_drag_offset, e.motion.y, scrollbar.y);
 				}
 
 			} else if(e.type == SDL_MOUSEBUTTONUP){
@@ -997,6 +1007,7 @@ int main(int argc, char* argv[]) {
 				manual_scrollbar_drag = false;  // Reset manual scrollbar drag flag
 				scroll_offset = 0; 
 				scroll_drag_offset = 0;
+				scrollbar_clicked_flag = false;
 
 			}  else if (e.type == SDL_MOUSEWHEEL){
 
@@ -1018,20 +1029,25 @@ int main(int argc, char* argv[]) {
 				}
 			
 				else{				
-					if((e.wheel.y > 0 || currentTextBlockHeight + render_y_off > netHeight) && (render_y_off < 25 || e.wheel.y < 0)){
-						SDL_Event event;
-						if(e.wheel.y == 1){
-							event.type = SDL_KEYDOWN;
-							event.key.keysym.sym = SDLK_DOWN;
-							SDL_PushEvent(&event);
+					if(true){
+						manual_scrollbar_drag = true;
+						// Use actual wheel delta for more precise scrolling
+						int scroll_delta = e.wheel.y * 5;  // Multiply by a factor to increase sensitivity
+						manual_scroll_mouseY += scroll_delta;
+						
+						// Clamp manual_scroll_mouseY within scrollbar bounds
+						SDL_GetWindowSize(window, &netWidth, &netHeight);
+						int scroll_start = 25;  // Top margin of scrollbar area
+						int scroll_end = netHeight - scrollbar.h - 25;  // Bottom margin of scrollbar area
+						
+						manual_scroll_mouseY = fmax(scroll_start, fmin(manual_scroll_mouseY, scroll_end));
+						
+						// Optional: Add some acceleration for faster scrolling
+						if (abs(e.wheel.y) > 1) {
+							manual_scroll_mouseY += (e.wheel.y > 0 ? 1 : -1) * 10;
 						}
-						else if(e.wheel.y == -1){
-							event.type = SDL_KEYDOWN;
-							event.key.keysym.sym = SDLK_UP;
-							SDL_PushEvent(&event);
-						}						
-						scroll_count += e.wheel.y;
-						render_y_off += (e.wheel.y*TTF_FontHeight(font));
+						
+						//printf("Wheel Delta: %d, Scroll Position: %d\n", e.wheel.y, manual_scroll_mouseY);
 					}
 //				printf("%d \n", line_number);
 				}
@@ -1954,9 +1970,6 @@ int main(int argc, char* argv[]) {
 		int highlight_text_index = 0;
 		int totalCharsProcessed = 0;		
 		
-		
-		
-		
 		drawcursor();			
 
 		while ((token = strsep(&str, "\n")) != NULL) {
@@ -2461,7 +2474,7 @@ int main(int argc, char* argv[]) {
 //		printf("%d\n", line_number);
 //		printf("%d",tokenCnt); DEGUBGIN ATTEMPT TO IMPLEMENT A NEW LINE ON AN EMPTY TOKEN 
         SDL_RenderPresent(renderer);
-    }
+	}
 
     SDL_StopTextInput();
     TTF_CloseFont(font);
@@ -2572,7 +2585,7 @@ void update_viewport() {
                 lineNumbers[line] = i + 1;
             }
         }
-    }
+    }			
 }
 
 void showNotification(SDL_Renderer *renderer, TTF_Font *font, const char *message) {
@@ -2678,9 +2691,9 @@ void drawscroll(int scroll_y) {
             
             // Update scrollbar position
             scrollbar.y = constrained_scroll_y;
-            
-            printf("Scroll Progress: %f, First Visible Line: %d, Render Y Offset: %d, Cursor: %d\n", 
-                   scroll_progress, first_visible_line, render_y_off, cursor);
+            manual_scrollbar_drag = false;
+            //printf("Scroll Progress: %f, First Visible Line: %d, Render Y Offset: %d, Cursor: %d\n", 
+            //       scroll_progress, first_visible_line, render_y_off, cursor);
         } else {
             // Original dynamic calculation
             float scroll_progress = (float)(virtual_cursor_line - (linesToDisplay / 2)) / (total_lines - linesToDisplay);
@@ -2997,3 +3010,109 @@ void manage_buffer_size() {
         }
     }
 }
+
+/***
+1
+2
+3
+4
+5
+7
+8
+9
+10
+11
+12
+13
+14
+15
+17
+18
+19
+20
+21
+22
+23
+24
+25
+27
+28
+29
+30
+41
+42
+43
+44
+45
+47
+48
+49
+50
+61
+62
+63
+64
+65
+67
+68
+69
+70
+81
+82
+83
+84
+85
+86
+87
+88
+89
+90
+91
+92
+93
+94
+95
+96
+97
+98
+99
+100
+101
+102
+103
+104
+105
+106
+107
+108
+109
+110
+111
+112
+113
+114
+115
+116
+117
+118
+119
+120
+131
+132
+133
+134
+135
+137
+138
+139
+140
+141
+142
+143
+144
+145
+147
+148
+149
+150
+***/
