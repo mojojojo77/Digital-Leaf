@@ -1561,18 +1561,18 @@ int main(int argc, char* argv[]) {
 							}
 						}
 					} else if(e.key.keysym.sym == SDLK_v){
-						char* clipboard_text = SDL_GetClipboardText();
-						if (clipboard_text) {
+						char* copied_text = SDL_GetClipboardText();
+						if (copied_text) {
 							// Debug logging for clipboard content
-							size_t clipboard_len = strlen(clipboard_text);
+							size_t clipboard_len = strlen(copied_text);
 							printf("Paste Debug:\n");
 							printf("  Clipboard text length: %d bytes\n", clipboard_len);
-							printf("  First 100 chars: %.100s\n", clipboard_text);
+							printf("  First 100 chars: %.100s\n", copied_text);
 							
 							// Check for extremely large clipboard content
 							if (clipboard_len > 10 * 1024 * 1024) {  // 10MB limit
 								printf("ERROR: Clipboard content too large (%d bytes)\n", clipboard_len);
-								SDL_free(clipboard_text);
+								SDL_free(copied_text);
 								continue;
 							}
 
@@ -1580,7 +1580,7 @@ int main(int argc, char* argv[]) {
 							char* cleaned_text = malloc(clipboard_len + 1);
 							if (!cleaned_text) {
 								printf("ERROR: Memory allocation failed for cleaned text\n");
-								SDL_free(clipboard_text);
+								SDL_free(copied_text);
 								continue;
 							}
 							
@@ -1588,8 +1588,8 @@ int main(int argc, char* argv[]) {
 							size_t carriage_returns_removed = 0;
 							
 							for (size_t i = 0; i < clipboard_len; i++) {
-								if (clipboard_text[i] != '\r') {
-									cleaned_text[clean_index++] = clipboard_text[i];
+								if (copied_text[i] != '\r') {
+									cleaned_text[clean_index++] = copied_text[i];
 								} else {
 									carriage_returns_removed++;
 								}
@@ -1652,7 +1652,7 @@ int main(int argc, char* argv[]) {
 							
 							// Cleanup
 							free(cleaned_text);
-							SDL_free(clipboard_text);
+							SDL_free(copied_text);
 							
 							// Trigger viewport update
 							update_viewport();
@@ -1719,76 +1719,108 @@ int main(int argc, char* argv[]) {
             } else if (e.type == SDL_TEXTINPUT) {
                 fileSaved = false;
                 
-                // Get clipboard text
-                char* clipboard_text = SDL_GetClipboardText();
-                if (clipboard_text) {
-                    size_t paste_length = strlen(clipboard_text);
-                    
-                    // Debug: Print paste information
-                    printf("Paste Debug:\n");
-                    printf("  Clipboard text length: %zu bytes\n", paste_length);
-                    printf("  Current buffer state:\n");
-                    printf("    bufferIndex: %d\n", bufferIndex);
-                    printf("    buffer_size: %d\n", buffer_size);
-                    
-                    // Maximum paste size to prevent potential memory issues
-                    const size_t MAX_PASTE_SIZE = 1024 * 1024;  // 1MB limit
-                    if (paste_length > MAX_PASTE_SIZE) {
-                        showNotification(renderer, font, "Paste too large. Truncating.");
-                        clipboard_text[MAX_PASTE_SIZE] = '\0';
-                        paste_length = MAX_PASTE_SIZE;
+                // Make space for the new character
+                if (bufferIndex + 1 >= buffer_size) {
+                    buffer_size *= GROWTH_FACTOR;
+                    char* new_textBuffer = (char*)realloc(textBuffer, buffer_size);
+                    char* new_tempBuffer = (char*)realloc(tempBuffer, buffer_size);
+                    if (!new_textBuffer || !new_tempBuffer) {
+                        printf("Failed to reallocate buffer\n");
+                        free(textBuffer);
+                        free(tempBuffer);
+                        fclose(file);
+                        return 1;
                     }
-                    
-                    // Ensure buffer can accommodate paste
-                    size_t required_size = bufferIndex + paste_length + 1;
-                    if (required_size > buffer_size) {
-                        // Calculate new buffer size with exponential growth
-                        size_t new_buffer_size = buffer_size;
-                        while (new_buffer_size < required_size) {
-                            new_buffer_size *= 2;
-                            if (new_buffer_size > MAX_PASTE_SIZE * 4) {
-                                showNotification(renderer, font, "Cannot paste. Buffer limit exceeded.");
-                                SDL_free(clipboard_text);
+                    textBuffer = new_textBuffer;
+                    tempBuffer = new_tempBuffer;
+                }
+
+                // Only insert if cursor is at a valid position
+                if (cursor <= bufferIndex) {
+                    memmove(&textBuffer[cursor + 1], &textBuffer[cursor], bufferIndex - cursor);
+                    textBuffer[cursor] = e.text.text[0];
+                    cursor++;
+                    bufferIndex++;
+                    textBuffer[bufferIndex] = '\0';
+                }
+            }
+            else if (e.type == SDL_KEYDOWN) {
+                fileSaved = false;
+                
+                switch (e.key.keysym.sym) {
+                    case SDLK_BACKSPACE:
+                        if (cursor > 0) {
+                            memmove(&textBuffer[cursor - 1], &textBuffer[cursor], bufferIndex - cursor + 1);
+                            cursor--;
+                            bufferIndex--;
+                            manage_buffer_size();
+                        }
+                        break;
+                        
+                    case SDLK_DELETE:
+                        if (cursor < bufferIndex) {
+                            memmove(&textBuffer[cursor], &textBuffer[cursor + 1], bufferIndex - cursor);
+                            bufferIndex--;
+                            manage_buffer_size();
+                        }
+                        break;
+
+                    case SDLK_LEFT:
+                        if (cursor > 0) {
+                            cursor--;
+                            ensure_cursor_visible();
+                        }
+                        break;
+
+                    case SDLK_RIGHT:
+                        if (cursor < bufferIndex) {
+                            cursor++;
+                            ensure_cursor_visible();
+                        }
+                        break;
+
+                    case SDLK_HOME:
+                        // Move to start of current line
+                        while (cursor > 0 && textBuffer[cursor - 1] != '\n') {
+                            cursor--;
+                        }
+                        ensure_cursor_visible();
+                        break;
+
+                    case SDLK_END:
+                        // Move to end of current line
+                        while (cursor < bufferIndex && textBuffer[cursor] != '\n') {
+                            cursor++;
+                        }
+                        ensure_cursor_visible();
+                        break;
+
+                    case SDLK_RETURN:
+                        // Insert newline character
+                        if (bufferIndex + 1 >= buffer_size) {
+                            buffer_size *= GROWTH_FACTOR;
+                            char* new_textBuffer = (char*)realloc(textBuffer, buffer_size);
+                            char* new_tempBuffer = (char*)realloc(tempBuffer, buffer_size);
+                            if (!new_textBuffer || !new_tempBuffer) {
+                                printf("Failed to reallocate buffer\n");
+                                free(textBuffer);
+                                free(tempBuffer);
+                                fclose(file);
                                 return 1;
                             }
+                            textBuffer = new_textBuffer;
+                            tempBuffer = new_tempBuffer;
                         }
-                        
-                        // Reallocate buffers
-                        char* new_textBuffer = (char*)realloc(textBuffer, new_buffer_size);
-                        char* new_tempBuffer = (char*)realloc(tempBuffer, new_buffer_size);
-                        int* new_lineNumbers = (int*)realloc(lineNumbers, new_buffer_size * sizeof(int));
-                        
-                        if (!new_textBuffer || !new_tempBuffer || !new_lineNumbers) {
-                            showNotification(renderer, font, "Memory allocation failed during paste.");
-                            free(new_textBuffer);
-                            free(new_tempBuffer);
-                            free(new_lineNumbers);
-                            SDL_free(clipboard_text);
-                            return 1;
+
+                        // Only insert if cursor is at a valid position
+                        if (cursor <= bufferIndex) {
+                            memmove(&textBuffer[cursor + 1], &textBuffer[cursor], bufferIndex - cursor);
+                            textBuffer[cursor] = '\n';
+                            cursor++;
+                            bufferIndex++;
+                            textBuffer[bufferIndex] = '\0';
                         }
-                        
-                        textBuffer = new_textBuffer;
-                        tempBuffer = new_tempBuffer;
-                        lineNumbers = new_lineNumbers;
-                        buffer_size = new_buffer_size;
-                        
-                        printf("  Buffer expanded to: %zu bytes\n", new_buffer_size);
-                    }
-                    
-                    // Insert clipboard text
-                    memmove(&textBuffer[cursor + paste_length], &textBuffer[cursor], bufferIndex - cursor);
-                    memcpy(&textBuffer[cursor], clipboard_text, paste_length);
-                    
-                    cursor += paste_length;
-                    bufferIndex += paste_length;
-                    textBuffer[bufferIndex] = '\0';
-                    
-                    SDL_free(clipboard_text);
-                    
-                    // Optional: Show paste size notification
-                    char notification[100];
-                    snprintf(notification, sizeof(notification), "Pasted %zu characters", paste_length);
-                    showNotification(renderer, font, notification);
+                        break;
                 }
             }
             // Ensure cursor stays within valid bounds
@@ -2580,8 +2612,8 @@ void showNotification(SDL_Renderer *renderer, TTF_Font *font, const char *messag
 
 	// Add text to the notification
 	SDL_Color textColor = {notification_text_color.r, notification_text_color.g, notification_text_color.b, notification_text_color.a}; // White text
-	SDL_Surface* textSurface = TTF_RenderText_Blended(font, message, textColor);
-	SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
+	SDL_Surface *textSurface = TTF_RenderText_Blended(font, message, textColor);
+	SDL_Texture *textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
 
 	int textWidth, textHeight;
 	SDL_QueryTexture(textTexture, NULL, NULL, &textWidth, &textHeight);
