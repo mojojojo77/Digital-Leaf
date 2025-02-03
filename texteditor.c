@@ -569,7 +569,10 @@ int main(int argc, char* argv[]) {
 	while (!quit) {
 		viewport_top_line = virtual_cursor_line - linesToDisplay / 2;
 		viewport_bottom_line = virtual_cursor_line + linesToDisplay / 2;
-
+		printf("\n  %d, %d", virtual_cursor_line, viewport_bottom_line);
+		if(viewport_top_line < 0)
+			viewport_top_line = 0;
+		
 /*** 
 		printf("\n Cursor Line: %d", cursor_line);
 		printf("\n Viewport Top Line: %d", viewport_top_line);
