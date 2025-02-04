@@ -508,7 +508,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    window = SDL_CreateWindow("Text Editor",
+    window = SDL_CreateWindow("Leaf",
         SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 800, 600, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
     if (!window) {
         printf("Window could not be created! SDL_Error: %s\n", SDL_GetError());
