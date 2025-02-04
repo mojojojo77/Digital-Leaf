@@ -1,8 +1,8 @@
 #define SDL_MAIN_HANDLED
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_ttf.h>
-#include <SDL2/SDL_syswm.h>
-#include <SDL2/SDL_image.h>
+#include "include/SDL2/SDL.h"
+#include "include/SDL2/SDL_ttf.h"
+#include "include/SDL2/SDL_syswm.h"
+#include "include/SDL2/SDL_image.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
