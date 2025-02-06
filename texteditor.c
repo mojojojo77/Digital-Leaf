@@ -2561,40 +2561,16 @@ int main(int argc, char* argv[]) {
 				exit_drawer_flag = false;
 				file_item_drop_down_flag = false;
 				
-				if(fileSaved){
-					close_without_saving:
-					if(file){
-	//					printf("\n %d",bufferIndex);
-
-						ftruncate(fileno(file), 0);
-						rewind(file);
-						
-						if (file) {
-							memmove(&textBuffer[cursor],&textBuffer[cursor+1], bufferIndex - cursor);
-							cursor = bufferIndex;
-							
-							int result = fprintf(file, "%.*s", bufferIndex, textBuffer);
-							fflush(file);
-							if (result < 0) {
-								printf("Error while saving file");
-							}
-							fclose(file);
-						}
-						
-						free(textBuffer);
-						free(tempBuffer);
-					}
-					quit = 1;					
-				}
-				else{
+				if(file){
+					//printf("\n %d",bufferIndex);
 					int result_d = tinyfd_messageBox(
-						"",      // Title of the message box
-						"Do you want to save progress before closing?", // The message
-						"yesno",      // Type of dialog: yes/no, ok/cancel, etc.
-						"question",   // Icon type (question, info, warning, error)
-						0             // Default button (0 means no default button)
-					);
-					
+							"",      // Title of the message box
+							"Do you want to save the changes?", // The message
+							"yesno",      // Type of dialog: yes/no, ok/cancel, etc.
+							"question",   // Icon type (question, info, warning, error)
+							0             // Default button (0 means no default button)
+						);
+
 					if(result_d == 1){
 						ftruncate(fileno(file), 0);
 						rewind(file);
@@ -2613,14 +2589,87 @@ int main(int argc, char* argv[]) {
 						free(textBuffer);
 						free(tempBuffer);
 						quit = 1;
-					}else{
-						fclose(file);
-						bufferIndex = 0;
+					}
+					else if(result_d == 0){
+						free(textBuffer);
+						free(tempBuffer);
+						quit = 1;							
+					}
+				}
+				else {
+					int result_d = tinyfd_messageBox(
+						"",      // Title of the message box
+						"Do you want to save the changes?", // The message
+						"yesno",      // Type of dialog: yes/no, ok/cancel, etc.
+						"question",   // Icon type (question, info, warning, error)
+						0             // Default button (0 means no default button)
+					);
+					if(result_d == 1){
+						const char *filters[] = {
+									"*.txt", "*.log", "*.md", "*.rst", "*.tex",
+									"*.c", "*.cpp", "*.h", "*.hpp", "*.py", "*.js",
+									"*.java", "*.html", "*.css", "*.sh", "*.bat",
+									"*.php", "*.rb", "*.xml", "*.json", "*.yaml",
+									"*.yml", "*.csv", "*.tsv", "*.ini", "*.cfg",
+									"*.toml", "*.env"
+								};
+						const char *filter_description = "Plain Text, Code Files, Markup and Data, Configuration Files, Documentation Files";
+						
+						filename = tinyfd_saveFileDialog(
+							"Save File",            // Dialog title
+							"default",           // Default file name
+							sizeof(filters)/sizeof(filters[0]),                      // Number of filters
+							filters,                // File type filters
+							filter_description      // Filter description
+						);
+						
+						if(filename != NULL) {
+							if(file) {
+								fclose(file);
+							}
+							file = fopen(filename, "w");
+							file = fopen(filename, "r+");
+						}						
+						
+						if(filename){				
+							if (file) {
+								memmove(&textBuffer[cursor],&textBuffer[cursor+1], bufferIndex - cursor);
+								cursor = bufferIndex;
+									
+								//printf("Here");
+								ftruncate(fileno(file), 0);
+								rewind(file);
+								int result = fprintf(file, "%.*s", bufferIndex, textBuffer);
+								fflush(file);
+								if (result < 0) {
+									printf("Error while saving file");
+								}
+								else{
+									notificationMessage = "File saved successfully!";
+									notificationFlag = true;
+									notifStartTime = SDL_GetTicks();
+								}
+							}else{
+								notificationMessage = "Error while saving the file!";
+								notificationFlag = true;
+								notifStartTime = SDL_GetTicks();
+							}	
+						}
+						else{
+							notificationMessage = "File path or file extension incorrect!";
+							notificationFlag = true;
+							notifStartTime = SDL_GetTicks();
+						}
 						free(textBuffer);
 						free(tempBuffer);
 						quit = 1;
 					}
-				}								
+					else if(result_d == 0){
+						free(textBuffer);
+						free(tempBuffer);
+						quit = 1;
+					}
+				}
 			}
 			
 			new_drawer_flag_clicked = false;
