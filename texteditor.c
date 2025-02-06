@@ -569,7 +569,7 @@ int main(int argc, char* argv[]) {
 	while (!quit) {
 		viewport_top_line = virtual_cursor_line - linesToDisplay / 2;
 		viewport_bottom_line = virtual_cursor_line + linesToDisplay / 2;
-		printf("\n  %d, %d", virtual_cursor_line, viewport_bottom_line);
+		//printf("\n  %d, %d", virtual_cursor_line, viewport_bottom_line);
 		if(viewport_top_line < 0)
 			viewport_top_line = 0;
 		
@@ -599,28 +599,115 @@ int main(int argc, char* argv[]) {
 			SDL_Keymod mod = SDL_GetModState();
 
             if (e.type == SDL_QUIT){
-				if(argc == 2){
-//					printf("\n %d",bufferIndex);
+				if(file){
+					//printf("\n %d",bufferIndex);
+					int result_d = tinyfd_messageBox(
+							"",      // Title of the message box
+							"Do you want to save the changes?", // The message
+							"yesno",      // Type of dialog: yes/no, ok/cancel, etc.
+							"question",   // Icon type (question, info, warning, error)
+							0             // Default button (0 means no default button)
+						);
 
-					ftruncate(fileno(file), 0);
-					rewind(file);
-					
-					if (file) {
-						memmove(&textBuffer[cursor],&textBuffer[cursor+1], bufferIndex - cursor);
-						cursor = bufferIndex;
+					if(result_d == 1){
+						ftruncate(fileno(file), 0);
+						rewind(file);
 						
-						int result = fprintf(file, "%.*s", bufferIndex, textBuffer);
-						fflush(file);
-						if (result < 0) {
-							printf("Error while saving file");
+						if (file) {
+							memmove(&textBuffer[cursor],&textBuffer[cursor+1], bufferIndex - cursor);
+							cursor = bufferIndex;
+							
+							int result = fprintf(file, "%.*s", bufferIndex, textBuffer);
+							fflush(file);
+							if (result < 0) {
+								printf("Error while saving file");
+							}
+							fclose(file);
 						}
-						fclose(file);
+						free(textBuffer);
+						free(tempBuffer);
+						quit = 1;
 					}
-					
-					free(textBuffer);
-					free(tempBuffer);
+					else if(result_d == 0){
+						free(textBuffer);
+						free(tempBuffer);
+						quit = 1;							
+					}
 				}
-                quit = 1;
+				else {
+					int result_d = tinyfd_messageBox(
+						"",      // Title of the message box
+						"Do you want to save the changes?", // The message
+						"yesno",      // Type of dialog: yes/no, ok/cancel, etc.
+						"question",   // Icon type (question, info, warning, error)
+						0             // Default button (0 means no default button)
+					);
+					if(result_d == 1){
+						const char *filters[] = {
+									"*.txt", "*.log", "*.md", "*.rst", "*.tex",
+									"*.c", "*.cpp", "*.h", "*.hpp", "*.py", "*.js",
+									"*.java", "*.html", "*.css", "*.sh", "*.bat",
+									"*.php", "*.rb", "*.xml", "*.json", "*.yaml",
+									"*.yml", "*.csv", "*.tsv", "*.ini", "*.cfg",
+									"*.toml", "*.env"
+								};
+						const char *filter_description = "Plain Text, Code Files, Markup and Data, Configuration Files, Documentation Files";
+						
+						filename = tinyfd_saveFileDialog(
+							"Save File",            // Dialog title
+							"default",           // Default file name
+							sizeof(filters)/sizeof(filters[0]),                      // Number of filters
+							filters,                // File type filters
+							filter_description      // Filter description
+						);
+						
+						if(filename != NULL) {
+							if(file) {
+								fclose(file);
+							}
+							file = fopen(filename, "w");
+							file = fopen(filename, "r+");
+						}						
+						
+						if(filename){				
+							if (file) {
+								memmove(&textBuffer[cursor],&textBuffer[cursor+1], bufferIndex - cursor);
+								cursor = bufferIndex;
+									
+								//printf("Here");
+								ftruncate(fileno(file), 0);
+								rewind(file);
+								int result = fprintf(file, "%.*s", bufferIndex, textBuffer);
+								fflush(file);
+								if (result < 0) {
+									printf("Error while saving file");
+								}
+								else{
+									notificationMessage = "File saved successfully!";
+									notificationFlag = true;
+									notifStartTime = SDL_GetTicks();
+								}
+							}else{
+								notificationMessage = "Error while saving the file!";
+								notificationFlag = true;
+								notifStartTime = SDL_GetTicks();
+							}	
+						}
+						else{
+							notificationMessage = "File path or file extension incorrect!";
+							notificationFlag = true;
+							notifStartTime = SDL_GetTicks();
+						}
+						free(textBuffer);
+						free(tempBuffer);
+						quit = 1;
+					}
+					else if(result_d == 0){
+						free(textBuffer);
+						free(tempBuffer);
+						quit = 1;
+					}
+				}
             } else if (e.type == SDL_WINDOWEVENT) {
 					// Handle window resize event
 					if (e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
@@ -668,7 +755,7 @@ int main(int argc, char* argv[]) {
 
 				// Check if the click occurred within the clickable region
 					
-//						printf("\n JUMP HEREEEREEEEE!");
+//					printf("\n JUMP HEREEEREEEEE!");
 					scroll_offset = mouseY - scrollbar.y;
 					isDragging = true;
 					
@@ -1144,28 +1231,115 @@ int main(int argc, char* argv[]) {
 ***/
 					ensure_cursor_visible();
                 } else if (e.key.keysym.sym == SDLK_ESCAPE) { // Note : Move cursor to the end of the buffer and change it to null before saving the file 
-					if(argc == 2){
+					if(file){
 						//printf("\n %d",bufferIndex);
+						int result_d = tinyfd_messageBox(
+								"",      // Title of the message box
+								"Do you want to save the changes?", // The message
+								"yesno",      // Type of dialog: yes/no, ok/cancel, etc.
+								"question",   // Icon type (question, info, warning, error)
+								0             // Default button (0 means no default button)
+							);
 
-						ftruncate(fileno(file), 0);
-						rewind(file);
-						
-						if (file) {
-							memmove(&textBuffer[cursor],&textBuffer[cursor+1], bufferIndex - cursor);
-							cursor = bufferIndex;
+						if(result_d == 1){
+							ftruncate(fileno(file), 0);
+							rewind(file);
 							
-							int result = fprintf(file, "%.*s", bufferIndex, textBuffer);
-							fflush(file);
-							if (result < 0) {
-								printf("Error while saving file");
+							if (file) {
+								memmove(&textBuffer[cursor],&textBuffer[cursor+1], bufferIndex - cursor);
+								cursor = bufferIndex;
+								
+								int result = fprintf(file, "%.*s", bufferIndex, textBuffer);
+								fflush(file);
+								if (result < 0) {
+									printf("Error while saving file");
+								}
+								fclose(file);
 							}
-							fclose(file);
+							free(textBuffer);
+							free(tempBuffer);
+							quit = 1;
 						}
-						
-						free(textBuffer);
-						free(tempBuffer);
+						else if(result_d == 0){
+							free(textBuffer);
+							free(tempBuffer);
+							quit = 1;							
+						}
 					}
-					quit = 1;
+					else {
+						int result_d = tinyfd_messageBox(
+							"",      // Title of the message box
+							"Do you want to save the changes?", // The message
+							"yesno",      // Type of dialog: yes/no, ok/cancel, etc.
+							"question",   // Icon type (question, info, warning, error)
+							0             // Default button (0 means no default button)
+						);
+						if(result_d == 1){
+							const char *filters[] = {
+										"*.txt", "*.log", "*.md", "*.rst", "*.tex",
+										"*.c", "*.cpp", "*.h", "*.hpp", "*.py", "*.js",
+										"*.java", "*.html", "*.css", "*.sh", "*.bat",
+										"*.php", "*.rb", "*.xml", "*.json", "*.yaml",
+										"*.yml", "*.csv", "*.tsv", "*.ini", "*.cfg",
+										"*.toml", "*.env"
+									};
+							const char *filter_description = "Plain Text, Code Files, Markup and Data, Configuration Files, Documentation Files";
+							
+							filename = tinyfd_saveFileDialog(
+								"Save File",            // Dialog title
+								"default",           // Default file name
+								sizeof(filters)/sizeof(filters[0]),                      // Number of filters
+								filters,                // File type filters
+								filter_description      // Filter description
+							);
+							
+							if(filename != NULL) {
+								if(file) {
+									fclose(file);
+								}
+								file = fopen(filename, "w");
+								file = fopen(filename, "r+");
+							}						
+							
+							if(filename){				
+								if (file) {
+									memmove(&textBuffer[cursor],&textBuffer[cursor+1], bufferIndex - cursor);
+									cursor = bufferIndex;
+										
+									//printf("Here");
+									ftruncate(fileno(file), 0);
+									rewind(file);
+									int result = fprintf(file, "%.*s", bufferIndex, textBuffer);
+									fflush(file);
+									if (result < 0) {
+										printf("Error while saving file");
+									}
+									else{
+										notificationMessage = "File saved successfully!";
+										notificationFlag = true;
+										notifStartTime = SDL_GetTicks();
+									}
+								}else{
+									notificationMessage = "Error while saving the file!";
+									notificationFlag = true;
+									notifStartTime = SDL_GetTicks();
+								}	
+							}
+							else{
+								notificationMessage = "File path or file extension incorrect!";
+								notificationFlag = true;
+								notifStartTime = SDL_GetTicks();
+							}
+							free(textBuffer);
+							free(tempBuffer);
+							quit = 1;
+						}
+						else if(result_d == 0){
+							free(textBuffer);
+							free(tempBuffer);
+							quit = 1;
+						}
+					}
                 } else if (e.key.keysym.sym == SDLK_LEFT && cursor > 0) {
 					if(highlight_flag == 1 && (mod & (KMOD_SHIFT | KMOD_CTRL | KMOD_ALT | KMOD_GUI)) == 0 && cursor >= highlight_end){
 						//printf("%d, %d", highlight_start, highlight_end);
@@ -1329,13 +1503,21 @@ int main(int argc, char* argv[]) {
 										
 					if(e.key.keysym.sym == SDLK_s){	
 						if(!file){
-							const char *filters[2] = {"*.txt", "*.c"};
-							const char *filter_description = "Text or C Files";
+							const char *filters[] = {
+										"*.txt", "*.log", "*.md", "*.rst", "*.tex",
+										"*.c", "*.cpp", "*.h", "*.hpp", "*.py", "*.js",
+										"*.java", "*.html", "*.css", "*.sh", "*.bat",
+										"*.php", "*.rb", "*.xml", "*.json", "*.yaml",
+										"*.yml", "*.csv", "*.tsv", "*.ini", "*.cfg",
+										"*.toml", "*.env"
+									};
+
+							const char *filter_description = "Plain Text, Code Files, Markup and Data, Configuration Files, Documentation Files";
 							
 							filename = tinyfd_saveFileDialog(
 								"Save File",            // Dialog title
-								"default.txt",           // Default file name
-								2,                      // Number of filters
+								"default",           // Default file name
+								sizeof(filters)/sizeof(filters[0]),                      // Number of filters
 								filters,                // File type filters
 								filter_description      // Filter description
 							);
@@ -1379,7 +1561,14 @@ int main(int argc, char* argv[]) {
 							 notifStartTime = SDL_GetTicks();
 						}
 					} else if(e.key.keysym.sym == SDLK_n){	
-						const char *filters[2] = {"*.txt", "*.c"};	
+							const char *filters[] = {
+										"*.txt", "*.log", "*.md", "*.rst", "*.tex",
+										"*.c", "*.cpp", "*.h", "*.hpp", "*.py", "*.js",
+										"*.java", "*.html", "*.css", "*.sh", "*.bat",
+										"*.php", "*.rb", "*.xml", "*.json", "*.yaml",
+										"*.yml", "*.csv", "*.tsv", "*.ini", "*.cfg",
+										"*.toml", "*.env"
+									};
 						
 						open_drawer_flag = false;
 						file_item_drop_down_flag = false;
@@ -1415,15 +1604,14 @@ int main(int argc, char* argv[]) {
 							}
 						}
 						
-						const char *filters2[2] = {"*.txt", "*.c"};	
-						const char *filter_description2 = "Text or C Files";
+						const char *filter_description = "Plain Text, Code Files, Markup and Data, Configuration Files, Documentation Files";
 						
 						filename = tinyfd_saveFileDialog(
 							"Save File",            // Dialog title
 							"default.txt",           // Default file name
-							2,                      // Number of filters
-							filters2,                // File type filters
-							filter_description2     // Filter description
+							sizeof(filters)/sizeof(filters[0]),                      // Number of filters
+							filters,                // File type filters
+							filter_description     // Filter description
 						);
 						
 						if(filename != NULL){
@@ -2102,14 +2290,22 @@ int main(int argc, char* argv[]) {
 					}
 				}
 				
-				const char *filters[2] = {"*.txt", "*.c"};
-				
+				const char *filters[] = {
+							"*.txt", "*.log", "*.md", "*.rst", "*.tex",
+							"*.c", "*.cpp", "*.h", "*.hpp", "*.py", "*.js",
+							"*.java", "*.html", "*.css", "*.sh", "*.bat",
+							"*.php", "*.rb", "*.xml", "*.json", "*.yaml",
+							"*.yml", "*.csv", "*.tsv", "*.ini", "*.cfg",
+							"*.toml", "*.env"
+						};
+				const char *filter_description = "Plain Text, Code Files, Markup and Data, Configuration Files, Documentation Files";
+
 				filename = tinyfd_saveFileDialog(
-					"Save File",            // Dialog title
-					"default.txt",           // Default file name
-					2,                      // Number of filters
+					"New File",            // Dialog title
+					"default",           // Default file name
+					sizeof(filters)/sizeof(filters[0]),                      // Number of filters
 					filters,                // File type filters
-					"Text or C Files"      // Filter description
+					filter_description     // Filter description
 				);
 				
 				if(filename != NULL) {
@@ -2170,13 +2366,20 @@ int main(int argc, char* argv[]) {
 				
 				bufferIndex = 0;
 				
-				const char *filters[2] = {"*.txt", "*.c"};	
-				const char *filter_description = "Text or C Files";
+				const char *filters[] = {
+							"*.txt", "*.log", "*.md", "*.rst", "*.tex",
+							"*.c", "*.cpp", "*.h", "*.hpp", "*.py", "*.js",
+							"*.java", "*.html", "*.css", "*.sh", "*.bat",
+							"*.php", "*.rb", "*.xml", "*.json", "*.yaml",
+							"*.yml", "*.csv", "*.tsv", "*.ini", "*.cfg",
+							"*.toml", "*.env"
+						};
+				const char *filter_description = "Plain Text, Code Files, Markup and Data, Configuration Files, Documentation Files";
 				
 				filename = tinyfd_openFileDialog(
 					"Select a file",  // Title of the dialog
 					"",               // Initial directory
-					2,               // Number of filter patterns
+					sizeof(filters)/sizeof(filters[0]),               // Number of filter patterns
 					filters,         // Filter patterns
 					filter_description, // Filter description
 					0                // Allow multiple files (0 means no default button)
@@ -2295,13 +2498,20 @@ int main(int argc, char* argv[]) {
 				file_item_drop_down_flag = false;
 				
 				if(!file){
-				const char *filters[2] = {"*.txt", "*.c"};
-				const char *filter_description = "Text or C Files";
+				const char *filters[] = {
+							"*.txt", "*.log", "*.md", "*.rst", "*.tex",
+							"*.c", "*.cpp", "*.h", "*.hpp", "*.py", "*.js",
+							"*.java", "*.html", "*.css", "*.sh", "*.bat",
+							"*.php", "*.rb", "*.xml", "*.json", "*.yaml",
+							"*.yml", "*.csv", "*.tsv", "*.ini", "*.cfg",
+							"*.toml", "*.env"
+						};
+				const char *filter_description = "Plain Text, Code Files, Markup and Data, Configuration Files, Documentation Files";
 				
 				filename = tinyfd_saveFileDialog(
 					"Save File",            // Dialog title
-					"default.txt",           // Default file name
-					2,                      // Number of filters
+					"default",           // Default file name
+					sizeof(filters)/sizeof(filters[0]),                      // Number of filters
 					filters,                // File type filters
 					filter_description      // Filter description
 				);
